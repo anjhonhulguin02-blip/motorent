@@ -3,7 +3,9 @@ import { supabase } from '../supabaseClient';
 
 export default function AuthModal({ isOpen, onClose, onLoginSuccess, lang }) {
   const [isSignUp, setIsSignUp] = useState(false);
-  const [email, setEmail] = useState('');
+  const [emailOrUsername, setEmailOrUsername] = useState(''); // Ginamit nating unpified field para sa login
+  const [email, setEmail] = useState(''); // Gagamitin lamang kapag nag-sa-Sign Up
+  const [username, setUsername] = useState(''); // Bagong state para sa username field
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [loading, setLoading] = useState(false);
@@ -16,13 +18,43 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, lang }) {
 
     try {
       if (isSignUp) {
-        // 1. SIGN UP sa Supabase Auth System
+        // --- PROCESS SIGN UP ---
+        
+        // Proteksyon laban sa may mga spacing o bawal na letra sa username
+        const cleanUsername = username.trim().toLowerCase().replace(/\s+/g, '');
+
+        if (cleanUsername.length < 3) {
+          throw new Error(
+            lang === 'en' 
+              ? 'Username must be at least 3 characters long.' 
+              : 'Ang username ay dapat hindi bababa sa 3 karakter.'
+          );
+        }
+
+        // Tiyakin muna natin na walang katulad ang username na pinili sa database table mo
+        const { data: existingUser, error: checkError } = await supabase
+          .from('mga_kliyente')
+          .select('username')
+          .eq('username', cleanUsername)
+          .maybeSingle();
+
+        if (checkError) throw checkError;
+        if (existingUser) {
+          throw new Error(
+            lang === 'en'
+              ? 'Username is already taken! Please choose another one.'
+              : 'May gumagamit na ng username na ito! Pumili ng iba.'
+          );
+        }
+
+        // 1. I-sign up sa Supabase Auth System kasama ang username sa metadata
         const { data, error: authError } = await supabase.auth.signUp({
           email,
           password,
           options: {
             data: {
-              display_name: fullName, // Sine-save ang pangalan sa auth metadata
+              display_name: fullName,
+              username: cleanUsername, // Isinasama sa secure metadata para sa Navbar greeting
             },
           },
         });
@@ -30,39 +62,68 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, lang }) {
         if (authError) throw authError;
 
         if (data?.user) {
-          // ⚠️ SAFETY TRAP FIX: Kapag naka-ON ang Email Confirmation sa Supabase dashboard,
-          // ang user session ay hindi agad magiging "active" (magiging null ang session sa simula).
-          // Kung hindi pa kumpirmado, hindi natin magagamit ang RLS (Row Level Security) para mag-insert.
-          
+          // 2. I-insert ang karagdagang impormasyon sa 'mga_kliyente' table mo
           const { error: profileError } = await supabase
             .from('mga_kliyente')
             .insert([
               {
                 id: data.user.id,
                 buong_pangalan: fullName,
-                email_address: email
+                email_address: email,
+                username: cleanUsername // Pasok sa bagong column na ginawa mo!
               },
             ]);
 
           if (profileError) {
-            // Kung nabigo ang pag-insert dahil sa RLS/Email Policy, bibigyan natin ng malinaw na babala ang user
             console.error("Profile insertion error:", profileError);
             throw new Error(
               lang === 'en'
-                ? "Account created, but we couldn't set up your profile table. Please check if email confirmation is required."
-                : "Gawa na ang account, ngunit nagka-error sa profile table. Paki-check kung kailangan ng email confirmation."
+                ? "Account created, but we couldn't set up your profile table."
+                : "Gawa na ang account, ngunit nagka-error sa pag-save sa profile table."
             );
           }
 
           alert(lang === 'en' 
-            ? `Welcome, ${fullName}! Your account has been created and you are now logged in.` 
-            : `Maligayang pagdating, ${fullName}! Gawa na ang iyong account at ikaw ay naka-login na.`);
+            ? `Welcome, ${fullName}! Your account has been created successfully.` 
+            : `Maligayang pagdating, ${fullName}! Matagumpay na nagawa ang iyong account.`);
           
-          onLoginSuccess(); // Isasara ang modal at ire-refresh ang login state sa App.jsx
+          onLoginSuccess();
         }
       } else {
-        // PROCESS REGULAR LOGIN
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        // --- PROCESS LOGIN (EMAIL OR USERNAME) ---
+        let targetEmail = emailOrUsername.trim();
+
+        // Kung walang '@', ibig sabihin ay username ang tinype ng kliyente
+        if (!targetEmail.includes('@')) {
+          const searchUsername = targetEmail.toLowerCase();
+          
+          // Hahanapin natin ang katapat na email address sa 'mga_kliyente' table
+          const { data: profile, error: searchError } = await supabase
+            .from('mga_kliyente')
+            .select('email_address')
+            .eq('username', searchUsername)
+            .maybeSingle();
+
+          if (searchError) throw searchError;
+          
+          if (!profile) {
+            throw new Error(
+              lang === 'en'
+                ? 'Username not found. Please register first.'
+                : 'Hindi mahanap ang username. Mag-rehistro muna.'
+            );
+          }
+          
+          // Kapag nahanap, ito ang ipapasa natin sa login logic sa ibaba
+          targetEmail = profile.email_address;
+        }
+
+        // I-authenticate gamit ang nahanap na email (o ang tinype na email) at ang password
+        const { error } = await supabase.auth.signInWithPassword({ 
+          email: targetEmail, 
+          password 
+        });
+        
         if (error) throw error;
         onLoginSuccess();
       }
@@ -96,23 +157,45 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, lang }) {
         </div>
         
         <form className="auth-form" onSubmit={handleSubmit}>
+          {/* LALABAS LANG KAPAG MAGRE-REHISTRO */}
           {isSignUp && (
+            <>
+              <input 
+                type="text" 
+                placeholder={lang === 'en' ? 'Full Name' : 'Buong Pangalan'} 
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                required 
+              />
+              
+              <input 
+                type="text" 
+                placeholder={lang === 'en' ? 'Username (e.g., anjhon21)' : 'Username (Hal. anjhon21)'} 
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                required 
+              />
+
+              <input 
+                type="email" 
+                placeholder="Email Address" 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required 
+              />
+            </>
+          )}
+
+          {/* LALABAS LANG KAPAG PILING PUMASOK (LOGIN SCREEN) */}
+          {!isSignUp && (
             <input 
               type="text" 
-              placeholder={lang === 'en' ? 'Full Name' : 'Buong Pangalan'} 
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
+              placeholder={lang === 'en' ? 'Email or Username' : 'Email o Username'} 
+              value={emailOrUsername}
+              onChange={(e) => setEmailOrUsername(e.target.value)}
               required 
             />
           )}
-
-          <input 
-            type="email" 
-            placeholder="Email Address" 
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required 
-          />
 
           <input 
             type="password" 

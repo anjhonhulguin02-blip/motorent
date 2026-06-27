@@ -109,7 +109,7 @@ export default function App() {
     
     // FIX: Catch kahit anong spelling ng active tab ang gamit ng Navbar mo para mag-trigger ang state refresh
     const currentTab = activeTab;
-    if (['dashboard', 'bookings', 'my-bookings'].includes(currentTab)) {
+    if (['dashboard', 'bookings', 'my-bookings', 'my bookings'].includes(currentTab.toLowerCase())) {
       setActiveTab('home');
       setTimeout(() => setActiveTab(currentTab), 100);
     }
@@ -164,7 +164,7 @@ export default function App() {
         )}
 
         {/* VIEW 3: CONDITIONAL ROUTING PANEL FOR BOOKINGS / DASHBOARD (FIXED MATRIX) */}
-        {['dashboard', 'bookings', 'my-bookings'].includes(activeTab) && user && (
+        {['dashboard', 'bookings', 'my-bookings', 'my bookings'].includes(activeTab.toLowerCase()) && user && (
           isAdmin ? (
             /* KUNG ADMIN: Lalabas ang Controller Panel na may "Mark as Completed" button */
             <AdminDashboard onStatusUpdate={fetchActiveRentals} lang={lang} />
