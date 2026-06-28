@@ -1,423 +1,330 @@
-/* --- MODERN HOLIDAY COLOR PALETTE CONFIGURATION --- */
+/* ==========================================================================
+   PURE GLASSMORPHISM PREMIUM ARCHITECTURE
+   ========================================================================== */
 :root {
-  --coral: #ED6B5A;
-  --sage: #91A776;
-  --cyan-muted: #9BC1BC;
-  --cream: #F6F4CA;
-  --deep-teal: #468186;
-  
-  --shadow-sm: 0 2px 8px rgba(70, 129, 134, 0.08);
-  --shadow-md: 0 10px 30px rgba(70, 129, 134, 0.12);
-  --shadow-lg: 0 20px 40px rgba(70, 129, 134, 0.18);
-  --radius-lg: 24px;
-  --radius-md: 16px;
-  --radius-sm: 12px;
-  
-  transition: background-color 0.4s cubic-bezier(0.4, 0, 0.2, 1), color 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  --bg-color: #151c29;          /* Deep Dark Matte Sapphire */
+  --card-bg: rgba(30, 41, 59, 0.4); /* Pure Translucent Glass */
+  --primary-color: #eaa974;     /* Signature Soft Gold Accent */
+  --text-color: #ffffff;
+  --text-muted: #94a3b8;
+  --border-color: rgba(255, 255, 255, 0.06);
 }
 
-[data-theme="light"] {
-  --bg-color: var(--cream);
-  --card-bg: #ffffff;
-  --text-color: var(--deep-teal);
-  --text-muted: #628e91;
-  --primary-color: var(--coral);
-  --nav-bg: rgba(255, 255, 255, 0.85);
-  --border-color: rgba(155, 193, 188, 0.4);
-}
-
-[data-theme="dark"] {
-  --bg-color: #172a2c;
-  --card-bg: #1f373a;
-  --text-color: var(--cream);
-  --text-muted: var(--cyan-muted);
-  --primary-color: var(--coral);
-  --nav-bg: rgba(23, 42, 44, 0.85);
-  --border-color: rgba(70, 129, 134, 0.5);
+/* Base Document Styles Reset */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  scroll-behavior: smooth;
 }
 
 body {
   background-color: var(--bg-color);
   color: var(--text-color);
-  line-height: 1.6;
-  -webkit-font-smoothing: antialiased;
 }
 
-/* --- GLASSMORPHISM NAVBAR --- */
-header {
-  position: sticky;
-  top: 0;
-  background-color: var(--nav-bg);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--border-color);
-  z-index: 1000;
+/* Custom UI Scrollbar styling */
+::-webkit-scrollbar {
+  width: 10px;
+}
+::-webkit-scrollbar-track {
+  background: #111622;
+}
+::-webkit-scrollbar-thumb {
+  background: #252f41;
+  border-radius: 5px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--primary-color);
 }
 
-.navbar {
+/* ==========================================================================
+   ANTI-FLOATING STICKY FOOTER ENGINE ARCHITECTURE
+   ========================================================================== */
+.app-wrapper {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 1.2rem 2rem;
+  flex-direction: column;
+  min-height: 100vh;
 }
 
-.logo {
-  font-size: 1.6rem;
-  font-weight: 800;
-  letter-spacing: -1px;
-  color: var(--text-color);
-}
-
-.logo span {
-  color: var(--primary-color);
-}
-
-.nav-links {
-  display: flex;
-  list-style: none;
-  gap: 2rem;
-  align-items: center;
-}
-
-.nav-links a {
-  text-decoration: none;
-  color: var(--text-color);
-  font-weight: 600;
-  font-size: 1rem;
-  opacity: 0.8;
-  transition: all 0.2s ease;
-  position: relative;
-  padding: 0.2rem 0;
-}
-
-.nav-links a:hover, .nav-links a.active {
-  opacity: 1;
-  color: var(--primary-color);
-}
-
-.theme-toggle {
-  background: var(--text-color);
-  color: var(--bg-color);
-  border: none;
-  padding: 0.6rem 1.2rem;
-  border-radius: var(--radius-lg);
-  cursor: pointer;
-  font-weight: 700;
-  font-size: 0.9rem;
-  transition: transform 0.2s ease, background-color 0.2s ease;
-}
-
-.theme-toggle:hover {
-  transform: translateY(-2px);
-}
-
-/* --- MODERN HERO SECTION --- */
-section {
-  padding: 6rem 2rem 3rem 2rem;
-  max-width: 1200px;
-  margin: 0 auto;
-}
-
-.hero {
-  text-align: center;
-  padding: 8rem 2rem;
-  background: linear-gradient(135deg, rgba(70, 129, 134, 0.8), rgba(23, 42, 44, 0.9)), url('https://images.unsplash.com/photo-1558981806-ec527fa84c39?q=80&w=1200') no-repeat center center/cover;
-  color: var(--cream);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
-}
-
-.hero h1 { 
-  font-size: 3.5rem; 
-  font-weight: 800; 
-  letter-spacing: -1.5px;
-  margin-bottom: 1.5rem; 
-  line-height: 1.2;
-}
-
-.hero p { 
-  font-size: 1.3rem; 
-  max-width: 600px;
-  margin: 0 auto 2.5rem auto; 
-  opacity: 0.9;
-}
-
-.btn {
-  display: inline-block;
-  background-color: var(--primary-color);
-  color: white;
-  padding: 1rem 2.5rem;
-  border-radius: var(--radius-lg);
-  text-decoration: none;
-  font-weight: 700;
-  font-size: 1.1rem;
-  box-shadow: 0 4px 15px rgba(237, 107, 90, 0.4);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.btn:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 8px 25px rgba(237, 107, 90, 0.6);
-}
-
-/* --- MODERN BIKES GRID --- */
-h2 {
-  text-align: center;
-  margin-bottom: 3.5rem;
-  font-size: 2.5rem;
-  font-weight: 800;
-  letter-spacing: -1px;
-}
-
-.bike-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 2.5rem;
-}
-
-.bike-card {
-  background-color: var(--card-bg);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-  box-shadow: var(--shadow-sm);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.bike-card:hover {
-  transform: translateY(-8px);
-  box-shadow: var(--shadow-md);
-  border-color: var(--primary-color);
-}
-
-.bike-img-container {
-  overflow: hidden;
-  position: relative;
-  height: 240px;
-}
-
-.bike-img {
+.main-content {
+  flex: 1;
+  padding-top: 85px;
   width: 100%;
-  height: 100%;
-  background-size: cover;
-  background-position: center;
-  transition: transform 0.5s ease;
 }
 
-.bike-card:hover .bike-img {
-  transform: scale(1.08);
-}
-
-.bike-info {
+.global-footer {
   padding: 2rem;
-}
-
-.bike-info h3 { 
-  font-size: 1.5rem; 
-  font-weight: 700;
-  margin-bottom: 0.5rem; 
-}
-
-.bike-price-tag {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1rem;
-}
-
-.bike-price {
-  color: var(--primary-color);
-  font-weight: 800;
-  font-size: 1.4rem;
-}
-
-.bike-price span {
-  font-size: 0.9rem;
+  background-color: #111622;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  text-align: center;
+  font-size: 0.85rem;
   color: var(--text-muted);
-  font-weight: 400;
-}
-
-.desc-text {
-  color: var(--text-muted);
-  font-size: 1rem;
-  margin-bottom: 1.5rem;
-}
-
-.btn-rent {
   width: 100%;
-  background-color: transparent;
-  border: 2px solid var(--text-color);
-  color: var(--text-color);
-  padding: 0.8rem;
-  border-radius: var(--radius-sm);
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.2s ease;
 }
 
-.bike-card:hover .btn-rent {
-  background-color: var(--text-color);
-  color: var(--bg-color);
-}
-
-/* --- ABOUT & CONTACT MODERN CARDS --- */
-.about-card {
-  background-color: var(--card-bg);
-  border: 1px solid var(--border-color);
-  padding: 4rem 2rem;
-  border-radius: var(--radius-lg);
-  text-align: center;
-  max-width: 800px;
-  margin: 0 auto;
-  box-shadow: var(--shadow-sm);
-}
-
-.about-card p {
-  font-size: 1.2rem;
-  max-width: 650px;
-  margin: 0 auto;
-}
-
-.contact-container {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 2.5rem;
-}
-
-.contact-card {
-  background-color: var(--card-bg);
-  border: 1px solid var(--border-color);
-  padding: 3rem 2rem;
-  border-radius: var(--radius-md);
-  text-align: center;
-  box-shadow: var(--shadow-sm);
-  transition: transform 0.2s ease;
-}
-
-.contact-card:hover {
-  transform: translateY(-4px);
-}
-
-.contact-card h3 {
-  color: var(--primary-color);
-  font-size: 1.4rem;
-  margin-bottom: 1rem;
-}
-
-footer {
-  text-align: center;
-  padding: 2.5rem;
-  background-color: var(--nav-bg);
-  border-top: 1px solid var(--border-color);
-  margin-top: 6rem;
-  font-weight: 600;
-  color: var(--text-muted);
-}
-/* --- AUTH MODAL STYLES --- */
-.modal-backdrop {
+/* ==========================================================================
+   UNIFIED PINAG-ISANG NAVBAR DESIGN SYSTEM (Desktop & Mobile)
+   ========================================================================== */
+.main-navbar {
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
-  height: 100%;
-  background: rgba(23, 42, 44, 0.8); /* Deep Teal na transparent */
-  backdrop-filter: blur(8px);
+  height: 80px;
+  z-index: 1000;
   display: flex;
-  justify-content: center;
   align-items: center;
-  z-index: 2000;
+  justify-content: space-between;
+  padding: 0 2.5rem;
+  background-color: transparent;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.auth-modal {
-  background-color: var(--card-bg);
-  width: 100%;
-  max-width: 450px;
-  padding: 3rem 2rem;
-  border-radius: var(--radius-lg);
-  position: relative;
-  box-shadow: var(--shadow-lg);
-  border: 1px solid var(--border-color);
+.main-navbar.scrolled {
+  background-color: rgba(21, 28, 41, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  height: 70px;
 }
 
-.close-btn {
-  position: absolute;
-  top: 20px;
-  right: 20px;
-  background: none;
-  border: none;
-  font-size: 2rem;
+.navbar-logo {
+  font-size: 1.4rem;
+  font-weight: 900;
   color: var(--text-color);
   cursor: pointer;
-  opacity: 0.5;
+  letter-spacing: 1px;
+  user-select: none;
 }
 
-.auth-header {
-  display: flex;
-  gap: 1rem;
-  margin-bottom: 2rem;
-  border-bottom: 2px solid var(--border-color);
-}
-
-.auth-header button {
-  background: none;
-  border: none;
-  padding: 0.5rem 1rem;
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: var(--text-muted);
-  cursor: pointer;
-  position: relative;
-}
-
-.auth-header button.active-tab {
+.navbar-logo span {
   color: var(--primary-color);
 }
 
-.auth-header button.active-tab::after {
-  content: '';
-  position: absolute;
-  bottom: -2px;
-  left: 0;
-  width: 100%;
-  height: 2px;
-  background-color: var(--primary-color);
+/* UNIFIED MENU CORE BUTTON GROUP */
+.unified-menu-container {
+  position: relative;
+  display: block; /* Palaging nakabukas kahit desktop or mobile */
 }
 
-.auth-form {
+.unified-hamburger-btn {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  transition: all 0.2s ease;
+}
+
+.unified-hamburger-btn:hover {
+  background: rgba(234, 169, 116, 0.1);
+  border-color: rgba(234, 169, 116, 0.3);
+}
+
+.hamburger-text {
+  color: var(--text-color);
+  font-weight: 800;
+  font-size: 0.85rem;
+  letter-spacing: 0.5px;
+}
+
+.hamburger-bars {
   display: flex;
   flex-direction: column;
-  gap: 1.2rem;
+  gap: 5px;
 }
 
-.auth-form h2 {
-  margin-bottom: 0.5rem;
-  text-align: left;
+.unified-hamburger-btn .bar {
+  display: block;
+  width: 20px;
+  height: 2px;
+  background-color: var(--text-color);
+  border-radius: 1px;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.auth-form input {
+/* Menu Open Rotation States */
+.unified-hamburger-btn.open .bar:nth-child(1) {
+  transform: translateY(7px) rotate(45deg);
+}
+.unified-hamburger-btn.open .bar:nth-child(2) {
+  opacity: 0;
+}
+.unified-hamburger-btn.open .bar:nth-child(3) {
+  transform: translateY(-7px) rotate(-45deg);
+}
+
+/* DROPDOWN INTERACTION OVERLAY CARD */
+.unified-dropdown-card {
+  position: absolute;
+  top: 55px;
+  right: 0;
+  background-color: rgba(21, 28, 41, 0.96);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
   padding: 1rem;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border-color);
-  background-color: var(--bg-color);
-  color: var(--text-color);
-  font-size: 1rem;
+  display: flex;
+  flex-direction: column;
+  width: 240px;
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5);
+  animation: dropdownSlide 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-.auth-submit-btn {
-  background-color: var(--primary-color);
-  color: white;
-  padding: 1rem;
-  border: none;
-  border-radius: var(--radius-sm);
-  font-weight: 800;
-  font-size: 1.1rem;
-  cursor: pointer;
-  margin-top: 1rem;
-  transition: opacity 0.2s;
+.dropdown-divider {
+  height: 1px;
+  background-color: rgba(255, 255, 255, 0.08);
+  margin: 8px 0;
 }
 
-.auth-submit-btn:hover {
-  opacity: 0.9;
+.unified-menu-action-btn {
+  width: 100% !important;
+  text-align: center !important;
+  padding: 12px !important;
+  border-radius: 10px !important;
+  font-size: 0.9rem !important;
+}
+
+.btn-logout {
+  background: rgba(255, 75, 75, 0.1) !important;
+  color: #ff4b4b !important;
+  border: 1px solid rgba(255, 75, 75, 0.2) !important;
+  cursor: pointer !important;
+  font-weight: 700 !important;
+  transition: all 0.2s ease !important;
+}
+
+.btn-logout:hover {
+  background: rgba(255, 75, 75, 0.2) !important;
+}
+
+@keyframes dropdownSlide {
+  from { opacity: 0; transform: translateY(-10px) scale(0.95); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ==========================================================================
+   GRID CORE LAYOUT MATRIX
+   ========================================================================== */
+.bike-grid {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 2.5rem !important;
+  width: 100% !important;
+  max-width: 1200px !important;
+  margin: 0 auto 5rem auto !important;
+  padding: 0 1.5rem !important;
+}
+
+/* ==========================================================================
+   MINIMALIST GLASS MATRIX HOVER CONTROLS
+   ========================================================================== */
+.bike-card {
+  background: var(--card-bg) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border: 1px solid var(--border-color) !important;
+  border-radius: 20px !important;
+  padding: 1.8rem !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: space-between !important;
+  min-height: 440px !important;
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.4s ease, box-shadow 0.4s ease !important;
+}
+
+.bike-card:hover {
+  transform: translateY(-6px) !important;
+  border-color: rgba(234, 169, 116, 0.35) !important;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25) !important;
+  background: rgba(30, 41, 59, 0.55) !important;
+}
+
+.bike-card-image-wrap {
+  width: 100%;
+  height: 180px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
+.bike-card-image-wrap img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.bike-card:hover .bike-card-image-wrap img {
+  transform: scale(1.06);
+}
+
+.bike-interactive-group {
+  opacity: 0 !important;
+  transform: translateY(10px) !important;
+  transition: opacity 0.35s ease, transform 0.35s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  margin-top: 1rem !important;
+}
+
+.bike-card:hover .bike-interactive-group {
+  opacity: 1 !important;
+  transform: translateY(0) !important;
+}
+
+.btn-primary {
+  width: 100% !important;
+  padding: 14px !important;
+  border: none !important;
+  border-radius: 12px !important;
+  background: var(--primary-color) !important;
+  color: #151c29 !important;
+  font-weight: 800 !important;
+  font-size: 0.95rem !important;
+  cursor: pointer !important;
+  box-shadow: 0 4px 12px rgba(234, 169, 116, 0.15) !important;
+  transition: all 0.2s ease !important;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #f5be93 !important;
+  box-shadow: 0 6px 18px rgba(234, 169, 116, 0.35) !important;
+}
+
+.btn-primary:disabled {
+  background: #232d3d !important;
+  color: #526073 !important;
+  cursor: not-allowed !important;
+  box-shadow: none !important;
+}
+
+/* ==========================================================================
+   RESPONSIVE DESIGN SYSTEM MEDIA BREAKPOINTS
+   ========================================================================== */
+@media (max-width: 950px) {
+  .bike-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 1.5rem !important;
+  }
+}
+
+@media (max-width: 650px) {
+  .main-navbar {
+    padding: 0 1.5rem;
+  }
+  .bike-grid {
+    grid-template-columns: 1fr !important;
+    gap: 1.5rem !important;
+  }
+  /* Laging visible ang interactive components sa phone view */
+  .bike-interactive-group {
+    opacity: 1 !important;
+    transform: translateY(0) !important;
+  }
 }
