@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
+import mainWebsiteBg from '../assets/BG.png';
 
-export default function Dashboard({ user, lang }) {
+export default function Dashboard({ user, lang, activeTab }) {
   const [myBookings, setMyBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentTab, setCurrentTab] = useState('active');
@@ -18,6 +19,45 @@ export default function Dashboard({ user, lang }) {
     return saved ? JSON.parse(saved) : [];
   });
 
+  // 🌟 BAGONG DYNAMIC FUNCTION: Kino-compute ang eksaktong Return Time para sa Client Card
+  const calculateEndTime = (booking) => {
+    let startDate;
+    
+    if (booking.petsa_ng_pagkuha) {
+      const timeString = booking.oras_ng_pagkuha || '00:00';
+      const combinedDateTime = `${booking.petsa_ng_pagkuha} ${timeString}`;
+      startDate = new Date(combinedDateTime);
+      
+      if (isNaN(startDate.getTime())) {
+        startDate = new Date(booking.created_at);
+      }
+    } else {
+      startDate = new Date(booking.created_at);
+    }
+
+    const packageStr = (booking.uri_ng_arkila || '').toLowerCase();
+    let baseHours = 24; // Fallback default
+    
+    // Eksaktong 1 oras kapag naka Per Hour setup
+    if (packageStr.includes('per hour') || packageStr.includes('hourly')) {
+      baseHours = 1;
+    } else if (packageStr.includes('12')) {
+      baseHours = 12;
+    } else if (packageStr.includes('24') || packageStr.includes('1 day') || packageStr.includes('magdamagan')) {
+      baseHours = 24;
+    } else if (packageStr.includes('week')) {
+      baseHours = 168;
+    } else {
+      const match = packageStr.match(/(\d+)\s*hour/);
+      if (match) baseHours = parseInt(match[1], 10);
+    }
+
+    const multiplier = booking.tagal_ng_arkila || 1;
+    const totalMillisecondsToAdd = baseHours * multiplier * 60 * 60 * 1000;
+
+    return new Date(startDate.getTime() + totalMillisecondsToAdd);
+  };
+
   const fetchMyBookings = async () => {
     setLoading(true);
     try {
@@ -26,27 +66,19 @@ export default function Dashboard({ user, lang }) {
         const { data: sessionData } = await supabase.auth.getSession();
         activeId = sessionData?.session?.user?.id;
       }
-      if (!activeId) { setLoading(false); return; }
+      if (!activeId) { 
+        setLoading(false); 
+        return; 
+      }
 
       const { data, error } = await supabase
         .from('mga_arkila')
         .select('*')
-        .eq('user_id', activeId)
+        .eq('user_id', activeId) 
         .order('created_at', { ascending: false });
 
-      if (error) {
-        const { data: fallbackData } = await supabase
-          .from('mga_arkila')
-          .select('*')
-          .order('created_at', { ascending: false });
-          
-        if (fallbackData) {
-          const filtered = fallbackData.filter(b => b.user_id === activeId || b.kliyente_id === activeId);
-          setMyBookings(filtered);
-          return;
-        }
-      }
-      if (data) setMyBookings(data);
+      if (error) throw error;
+      setMyBookings(data || []);
     } catch (err) {
       console.error(err);
     } finally {
@@ -54,236 +86,341 @@ export default function Dashboard({ user, lang }) {
     }
   };
 
-  const fetchMyReviews = async () => {
+  const fetchReviewedBookings = async () => {
     try {
-      const { data } = await supabase
+      let activeId = user?.id;
+      if (!activeId) {
+        const { data: sessionData } = await supabase.auth.getSession();
+        activeId = sessionData?.session?.user?.id;
+      }
+      if (!activeId) return;
+
+      const { data, error } = await supabase
         .from('mga_review')
         .select('arkila_id')
-        .eq('user_id', user?.id);
-      if (data) setReviewedBookingIds(data.map(r => r.arkila_id));
-    } catch (e) { console.error(e); }
+        .eq('id_ng_gumagamit', activeId);
+
+      if (error) {
+        console.warn("Reviews array fetch skipped:", error.message);
+        return;
+      }
+      
+      if (data) {
+        setReviewedBookingIds(data.map(r => r.arkila_id));
+      }
+    } catch (err) {
+      console.error("Review array lookup error:", err);
+    }
   };
 
   useEffect(() => {
     fetchMyBookings();
-    if (user?.id) fetchMyReviews();
-  }, [user]);
+    fetchReviewedBookings();
+  }, [user, activeTab]);
 
-  const handleProofUpload = async (e, bookingId, currentMethod) => {
+  const handleIDUpload = async (e, bookingId) => {
     const file = e.target.files[0];
     if (!file) return;
+
     setUploadingId(bookingId);
     try {
       const fileExt = file.name.split('.').pop();
-      const fileName = `${bookingId}-${Date.now()}.${fileExt}`;
-      const filePath = `proofs/${fileName}`;
+      const fileName = `${user?.id || 'guest'}_${bookingId}_${Math.random()}.${fileExt}`;
+      const filePath = `${fileName}`;
 
       const { error: uploadError } = await supabase.storage
-        .from('resibo')
-        .upload(filePath, file, { cacheControl: '3600', upsert: true });
+        .from('mga_id_bucket')
+        .upload(filePath, file);
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error("Storage Upload Error:", uploadError);
+        throw uploadError;
+      }
 
-      const { data: urlData } = supabase.storage.from('resibo').getPublicUrl(filePath);
-      const publicUrl = urlData.publicUrl;
-      const baseMethod = String(currentMethod || 'GCASH').split(' | ')[0];
+      const { data: publicUrlData } = supabase.storage
+        .from('mga_id_bucket')
+        .getPublicUrl(filePath);
+
+      const fullPublicUrl = publicUrlData.publicUrl;
 
       const { error: updateError } = await supabase
         .from('mga_arkila')
-        .update({ paraan_ng_pagbayad: `${baseMethod} | ${publicUrl}` }) 
+        .update({ id_gobyerno_url: fullPublicUrl })
         .eq('id', bookingId);
 
       if (updateError) {
-        await supabase
-          .from('mga_arkila')
-          .update({ paraan_ng_bayad: `${baseMethod} | ${publicUrl}` }) 
-          .eq('id', bookingId);
+        console.error("Database Update Error:", updateError);
+        throw updateError;
       }
-      alert(lang === 'en' ? 'Proof uploaded!' : 'Na-upload na ang resibo!');
+
+      alert(lang === 'en' ? "Government ID uploaded successfully!" : "Matagumpay na na-upload ang iyong Government ID!");
       fetchMyBookings();
     } catch (err) {
-      alert('Upload error.');
-    } finally { setUploadingId(null); }
+      alert("Upload failed. Make sure your storage bucket exists and is public.");
+      console.error("Buong Error Details:", err);
+    } finally {
+      setUploadingId(null);
+    }
   };
 
-  const handleReviewSubmit = async (e) => {
+  const submitReviewHandler = async (e) => {
     e.preventDefault();
     if (!selectedBookingForReview) return;
+
     setSubmittingReview(true);
     try {
-      const bikeName = selectedBookingForReview.uri_ng_arkila || selectedBookingForReview.pangalan_ng_motor || 'Premium Unit';
       const { error } = await supabase
         .from('mga_review')
         .insert([{
-          user_id: user?.id,
-          pangalan_ng_kliyente: user?.email ? user.email.split('@')[0] : 'Client',
-          motor_na_narkila: bikeName,
-          rating: rating,
-          komento: comment,
-          arkila_id: selectedBookingForReview.id
+          arkila_id: selectedBookingForReview.id,
+          id_ng_gumagamit: user?.id,
+          pangalan_ng_kliyente: user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Client',
+          rating: parseInt(rating),
+          motor_na_narkila: selectedBookingForReview.pangalan_ng_motor || selectedBookingForReview.motor_na_narkila || 'Motorcycle Unit',
+          komento: comment
         }]);
 
       if (error) throw error;
-      alert(lang === 'en' ? 'Review submitted!' : 'Salamat sa iyong review!');
-      setReviewedBookingIds([...reviewedBookingIds, selectedBookingForReview.id]);
+
+      alert(lang === 'en' ? "Thank you for your feedback!" : "Salamat sa iyong review at komento!");
+      setReviewedBookingIds(prev => [...prev, selectedBookingForReview.id]);
       setSelectedBookingForReview(null);
       setComment('');
-      setRating(5);
-    } catch (err) { alert(err.message); } 
-    finally { setSubmittingReview(false); }
-  };
-
-  const getRateUnitLabel = (booking) => {
-    const rate = booking.napiling_rate || '';
-    if (rate === 'hr' || rate.includes('hour') || rate.includes('hrs')) {
-      return lang === 'en' ? 'hour(s)' : 'oras';
+      
+      fetchReviewedBookings();
+    } catch (err) {
+      console.error("Review Submit Error Details:", err);
+      alert(lang === 'en' ? "Error submitting review." : "Nagka-error sa pag-submit ng review.");
+    } finally {
+      setSubmittingReview(false);
     }
-    return lang === 'en' ? 'day(s)' : 'araw';
   };
 
-  const getBookingStatus = (booking) => {
-    return booking.current_status || booking.current_status_ng_renta || booking.status_ng_renta || booking.status || 'Pending';
+  const hideFromHistory = (bookingId) => {
+    const updated = [...hiddenHistoryIds, bookingId];
+    setHiddenHistoryIds(updated);
+    localStorage.setItem(`hidden_bookings_${user?.id || 'guest'}`, JSON.stringify(updated));
   };
 
-  const activeBookings = myBookings.filter(b => getBookingStatus(b) !== 'Completed' && getBookingStatus(b) !== 'Rejected');
-  const historyBookings = myBookings.filter(b => (getBookingStatus(b) === 'Completed' || getBookingStatus(b) === 'Rejected') && !hiddenHistoryIds.includes(b.id));
-  const displayedBookings = currentTab === 'active' ? activeBookings : historyBookings;
+  const visibleBookings = myBookings.filter((b) => {
+    if (hiddenHistoryIds.includes(b.id)) return false;
+    const status = b.estado || b.status;
+    if (currentTab === 'active') return status === 'Pending' || status === 'Approved';
+    if (currentTab === 'history') return status === 'Completed' || status === 'Rejected';
+    return true;
+  });
 
   if (loading) {
     return (
-      <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-color)' }}>
-        <h3>⏳ {lang === 'en' ? 'Fetching records...' : 'Kinukuha ang listahan...'}</h3>
+      <div style={{ textAlign: 'center', padding: '5rem', color: '#ffffff' }}>
+        <p>⏳ Loading your personal transaction hub...</p>
       </div>
     );
   }
 
   return (
-    <div style={{ width: '100%', maxWidth: '1200px', margin: '0 auto', padding: '2rem 1rem' }}>
-      
-      <div style={{ marginBottom: '1.5rem' }}>
-        <h2 style={{ margin: 0, fontSize: '1.8rem', fontWeight: 'bold', color: 'var(--text-color)' }}>
-          📊 {lang === 'en' ? 'Your Rental Dashboard' : 'Dashboard ng iyong mga Arkila'}
-        </h2>
-      </div>
+    <div style={{
+      width: '100%',
+      minHeight: '100vh',
+      backgroundImage: `url(${mainWebsiteBg})`,
+      backgroundSize: '100% 100%',
+      backgroundPosition: 'center',
+      backgroundRepeat: 'no-repeat',
+      backgroundColor: '#0f172a',
+      boxSizing: 'border-box',
+      padding: '130px 1.5rem 4rem 1.5rem'
+    }}>
+      <div style={{
+        backgroundColor: 'rgba(21, 28, 41, 0.88)', 
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
+        border: '2px solid rgba(234, 169, 116, 0.6)', 
+        borderRadius: '24px',
+        maxWidth: '1000px', 
+        width: '100%',
+        margin: '0 auto',
+        padding: '2.5rem 1.5rem',
+        boxSizing: 'border-box',
+        boxShadow: '0 0 50px rgba(234, 169, 116, 0.15), 0 40px 80px -15px rgba(0, 0, 0, 0.8)',
+      }}>
 
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '2rem', borderBottom: '2px solid var(--border-color)' }}>
-        <button onClick={() => setCurrentTab('active')} style={{ background: 'none', border: 'none', padding: '0.5rem 1rem', fontSize: '1rem', fontWeight: 'bold', cursor: 'pointer', color: currentTab === 'active' ? 'var(--primary-color)' : 'var(--text-muted)', borderBottom: currentTab === 'active' ? '3px solid var(--primary-color)' : 'none' }}>
-          🏍️ {lang === 'en' ? 'Active' : 'Kasalukuyan'} ({activeBookings.length})
-        </button>
-        <button onClick={() => setCurrentTab('history')} style={{ background: 'none', border: 'none', padding: '0.5rem 1rem', fontSize: '1rem', fontWeight: 'bold', cursor: 'pointer', color: currentTab === 'history' ? 'var(--primary-color)' : 'var(--text-muted)', borderBottom: currentTab === 'history' ? '3px solid var(--primary-color)' : 'none' }}>
-          📜 {lang === 'en' ? 'History' : 'Nakaraan'} ({historyBookings.length})
-        </button>
-      </div>
-
-      {/* Review Form Overlay Modal */}
-      {selectedBookingForReview && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 9999, padding: '1rem' }}>
-          <form style={{ backgroundColor: 'var(--card-bg)', padding: '1.5rem', borderRadius: '12px', width: '100%', maxWidth: '400px', border: '1px solid var(--border-color)' }} onSubmit={handleReviewSubmit}>
-            <h3 style={{ margin: '0 0 0.5rem 0', color: 'var(--primary-color)' }}>⭐ {lang === 'en' ? 'Leave Review' : 'Sumulat ng Review'}</h3>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>{selectedBookingForReview.uri_ng_arkila || selectedBookingForReview.pangalan_ng_motor}</p>
-            
-            <div style={{ marginBottom: '1rem' }}>
-              <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.85rem', fontWeight: 'bold' }}>Rating:</label>
-              <select value={rating} onChange={(e) => setRating(Number(e.target.value))} style={{ width: '100%', padding: '10px', borderRadius: '6px', backgroundColor: 'var(--bg-color)', color: 'var(--text-color)', border: '1px solid var(--border-color)' }}>
-                <option value="5">5 ★ - Excellent</option>
-                <option value="4">4 ★ - Good</option>
-                <option value="3">3 ★ - Fair</option>
-                <option value="2">2 ★ - Poor</option>
-                <option value="1">1 ★ - Terrible</option>
-              </select>
-            </div>
-
-            <div style={{ marginBottom: '1.5rem' }}>
-              <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.85rem', fontWeight: 'bold' }}>Komento:</label>
-              <textarea required rows="4" value={comment} onChange={(e) => setComment(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '6px', backgroundColor: 'var(--bg-color)', color: 'var(--text-color)', border: '1px solid var(--border-color)', resize: 'none' }}></textarea>
-            </div>
-
-            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-              <button type="button" onClick={() => setSelectedBookingForReview(null)} style={{ padding: '8px 16px', borderRadius: '6px', background: '#e2e8f0', color: '#475569', border: 'none', cursor: 'pointer' }}>Cancel</button>
-              <button type="submit" className="btn-primary" disabled={submittingReview} style={{ padding: '8px 16px', borderRadius: '6px' }}>Submit</button>
-            </div>
-          </form>
+        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+          <h2 style={{ fontSize: '2.2rem', fontWeight: '900', color: '#ffffff', margin: '0 0 0.5rem 0', letterSpacing: '1px' }}>
+            YOUR <span style={{ color: '#eaa974' }}>DASHBOARD</span>
+          </h2>
+          <p style={{ color: '#cbd5e1', fontSize: '0.95rem', margin: 0 }}>
+            {lang === 'en' ? "Track your active bike reservations and history logs" : "I-track ang iyong mga reserbasyon sa motor at history"}
+          </p>
         </div>
-      )}
 
-      {displayedBookings.length === 0 ? (
-        <div style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--border-color)', padding: '3rem', borderRadius: '12px', textAlign: 'center' }}>
-          {currentTab === 'active' ? (lang === 'en' ? 'No active requests.' : 'Walang kasalukuyang arkila.') : (lang === 'en' ? 'No history.' : 'Walang nakaraang rekord.')}
+        <div style={{ display: 'flex', gap: '10px', marginBottom: '1.5rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '12px' }}>
+          <button 
+            onClick={() => setCurrentTab('active')} 
+            style={{ 
+              padding: '8px 16px', 
+              backgroundColor: currentTab === 'active' ? '#eaa974' : 'transparent', 
+              color: currentTab === 'active' ? '#151c29' : '#ffffff',
+              border: 'none', borderRadius: '6px', fontWeight: '800', cursor: 'pointer' 
+            }}
+          >
+            📋 {lang === 'en' ? 'Active Bookings' : 'Kasalukuyang Transaksyon'}
+          </button>
+          <button 
+            onClick={() => setCurrentTab('history')} 
+            style={{ 
+              padding: '8px 16px', 
+              backgroundColor: currentTab === 'history' ? '#eaa974' : 'transparent', 
+              color: currentTab === 'history' ? '#151c29' : '#ffffff',
+              border: 'none', borderRadius: '6px', fontWeight: '800', cursor: 'pointer' 
+            }}
+          >
+            🗄️ {lang === 'en' ? 'Past Records' : 'Naraang Biyahe (History)'}
+          </button>
         </div>
-      ) : (
-        /* LOCK 3 ROWS & 3 COLUMNS COHERENT SYSTEM */
-        <div className="bike-grid">
-          {displayedBookings.map((booking) => {
-            const status = getBookingStatus(booking);
-            const price = booking.kabuuang_bayad || 0;
-            const bikeName = booking.uri_ng_arkila || booking.pangalan_ng_motor || 'Premium Unit';
-            const durationNum = booking.tagal_ng_arkila || 1;
-            const rawMethod = booking.paraan_ng_pagbayad || booking.paraan_ng_bayad || 'GCASH';
-            const paymentParts = String(rawMethod).split(' | ');
-            const paymentName = paymentParts[0];
-            const hasUploaded = paymentParts.length > 1 && paymentParts[1].startsWith('http');
-            const isAlreadyReviewed = reviewedBookingIds.includes(booking.id);
 
-            return (
-              <div key={booking.id} className="bike-card">
-                
-                <div style={{ width: '100%' }}>
-                  <h3 style={{ color: 'var(--primary-color)', fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>{bikeName}</h3>
-                  <p style={{ fontSize: '0.9rem', margin: '0.3rem 0' }}>
-                    <strong>{lang === 'en' ? 'Duration:' : 'Tagal:'}</strong> {durationNum} {getRateUnitLabel(booking)}
-                  </p>
-                  <p style={{ fontSize: '0.9rem', margin: '0.3rem 0' }}>
-                    <strong>{lang === 'en' ? 'Method:' : 'Paraan:'}</strong> {paymentName}
-                  </p>
+        {visibleBookings.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '3rem 1rem', color: '#cbd5e1', background: 'rgba(255,255,255,0.02)', borderRadius: '12px' }}>
+            {lang === 'en' ? "No transaction records found inside this log module." : "Walang nakitang transaksyon dito sa tab na ito."}
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            {visibleBookings.map((booking) => {
+              const status = booking.estado || booking.status;
+              const isAlreadyReviewed = reviewedBookingIds.includes(booking.id);
 
-                  {status === 'Pending' && (paymentName.toUpperCase() === 'GCASH' || paymentName.toUpperCase() === 'E-WALLET') && (
-                    <div style={{ marginTop: '0.8rem', backgroundColor: 'var(--bg-color)', padding: '8px', borderRadius: '6px', border: '1px dashed var(--border-color)' }}>
-                      <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--primary-color)', marginBottom: '4px', fontWeight: 'bold' }}>
-                        📢 Upload Receipt:
+              // 🌟 DYNAMIC PINAGSAMA ANG PETSA AT ORAS NG PAGKUHA PARA SA PROPER FORMATTING
+              let pickupDateObj = new Date(booking.created_at);
+              if (booking.petsa_ng_pagkuha) {
+                const timeString = booking.oras_ng_pagkuha || '00:00';
+                const combined = new Date(`${booking.petsa_ng_pagkuha} ${timeString}`);
+                if (!isNaN(combined.getTime())) {
+                  pickupDateObj = combined;
+                }
+              }
+
+              const displayPickup = pickupDateObj.toLocaleString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+              });
+
+              // 🌟 AUTOMATIC AT AKURADONG COMPUTATION NG RETURN DEADLINE BASE SA PACKAGE AT DURATION
+              const endTimeObj = calculateEndTime(booking);
+              const displayReturn = endTimeObj.toLocaleString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+              });
+              
+              const displayBikeName = booking.pangalan_ng_motor || booking.motor_na_arkila || 'Motorcycle Unit';
+              const displayPrice = booking.kabuuang_bayad || booking.kabuuang_halaga || booking.total_price || 0;
+
+              return (
+                <div 
+                  key={booking.id} 
+                  style={{ 
+                    backgroundColor: 'rgba(30, 41, 59, 0.5)', 
+                    border: '1px solid rgba(255,255,255,0.08)', 
+                    borderRadius: '16px', 
+                    padding: '1.5rem',
+                    textAlign: 'left'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: '12px', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '10px' }}>
+                    <h4 style={{ margin: 0, color: '#eaa974', fontSize: '1.15rem' }}>🏍️ {displayBikeName}</h4>
+                    <span style={{
+                      padding: '4px 12px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: '800',
+                      backgroundColor: status === 'Pending' ? '#f59e0b' : status === 'Approved' ? '#10b981' : status === 'Completed' ? '#3b82f6' : '#ef4444',
+                      color: 'white'
+                    }}>{status}</span>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px', fontSize: '0.9rem', color: '#cbd5e1' }}>
+                    <div><strong>Rent Price:</strong> ₱{displayPrice}</div>
+                    <div><strong>Pickup:</strong> {displayPickup}</div>
+                    {/* Dito makikita ng customer ang eksaktong real deadline */}
+                    <div><strong>Return:</strong> {displayReturn}</div>
+                  </div>
+
+                  {status === 'Pending' && !booking.id_gobyerno_url && (
+                    <div style={{ marginTop: '1.25rem', backgroundColor: 'rgba(234,169,116,0.05)', border: '1px dashed rgba(234,169,116,0.3)', padding: '1rem', borderRadius: '10px' }}>
+                      <label style={{ display: 'block', fontSize: '0.85rem', color: '#eaa974', marginBottom: '8px', fontWeight: 'bold' }}>
+                        🪪 {lang === 'en' ? 'Upload Required Government ID to verify booking:' : 'I-upload ang Required Government ID para ma-verify:'}
                       </label>
-                      <input type="file" accept="image/*" disabled={uploadingId === booking.id} onChange={(e) => handleProofUpload(e, booking.id, rawMethod)} style={{ fontSize: '0.75rem', width: '100%' }} />
-                      {hasUploaded && <p style={{ color: '#38a169', fontSize: '0.75rem', marginTop: '4px' }}>✓ Uploaded</p>}
-                    </div>
-                  )}
-                </div>
-
-                <div style={{ width: '100%', marginTop: '1rem', borderTop: '1px solid var(--border-color)', paddingTop: '0.8rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  <div style={{ fontSize: '1.3rem', fontWeight: 'bold', color: 'var(--text-color)' }}>₱{Number(price).toLocaleString()}</div>
-                  
-                  <span style={{ 
-                    alignSelf: 'flex-start',
-                    padding: '4px 12px', 
-                    borderRadius: '20px', 
-                    fontSize: '0.75rem', 
-                    fontWeight: 'bold', 
-                    backgroundColor: status === 'Approved' || status === 'Completed' ? 'rgba(56, 161, 105, 0.15)' : status === 'Rejected' ? 'rgba(229, 62, 62, 0.15)' : 'rgba(234, 169, 116, 0.15)', 
-                    color: status === 'Approved' || status === 'Completed' ? '#38a169' : status === 'Rejected' ? '#e53e3e' : 'var(--primary-color)', 
-                    border: `1px solid ${status === 'Approved' || status === 'Completed' ? '#38a169' : status === 'Rejected' ? '#e53e3e' : 'var(--primary-color)'}` 
-                  }}>
-                    {status}
-                  </span>
-
-                  {status === 'Completed' && (
-                    <div style={{ display: 'flex', gap: '6px', width: '100%', marginTop: '4px' }}>
-                      {!isAlreadyReviewed ? (
-                        <button onClick={() => setSelectedBookingForReview(booking)} style={{ background: 'var(--primary-color)', color: '#1f293a', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 'bold', cursor: 'pointer' }}>⭐ Review</button>
-                      ) : (
-                        <span style={{ fontSize: '0.75rem', color: '#38a169', fontStyle: 'italic' }}>✓ Reviewed</span>
-                      )}
-                      <button onClick={() => hideFromHistory(booking.id)} style={{ background: 'rgba(229, 62, 62, 0.1)', border: '1px solid rgba(229, 62, 62, 0.3)', color: '#e53e3e', fontSize: '0.75rem', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer' }}>Clear</button>
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        onChange={(e) => handleIDUpload(e, booking.id)} 
+                        disabled={uploadingId === booking.id}
+                        style={{ color: '#ffffff', fontSize: '0.85rem' }} 
+                      />
+                      {uploadingId === booking.id && <span style={{ fontSize: '0.8rem', color: '#eaa974', display: 'block', marginTop: '5px' }}>⚡ Uploading secure file...</span>}
                     </div>
                   )}
 
-                  {status === 'Rejected' && (
-                    <button onClick={() => hideFromHistory(booking.id)} style={{ background: 'rgba(229, 62, 62, 0.1)', border: '1px solid rgba(229, 62, 62, 0.3)', color: '#e53e3e', fontSize: '0.75rem', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', textAlign: 'center' }}>Clear</button>
+                  {booking.id_gobyerno_url && status === 'Pending' && (
+                    <div style={{ marginTop: '10px', fontSize: '0.8rem', color: '#10b981', fontWeight: '700' }}>
+                      ✓ Government ID photo linked. Waiting for administrator hub verification.
+                    </div>
                   )}
-                </div>
 
-              </div>
-            );
-          })}
-        </div>
-      )}
+                  <div style={{ marginTop: '1rem', display: 'flex', gap: '6px' }}>
+                    {status === 'Completed' && (
+                      <div style={{ display: 'flex', gap: '6px', width: '100%', marginTop: '4px' }}>
+                        {!isAlreadyReviewed ? (
+                          <button onClick={() => setSelectedBookingForReview(booking)} style={{ background: '#eaa974', color: '#151c29', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 'bold', cursor: 'pointer' }}>Review</button>
+                        ) : (
+                          <span style={{ fontSize: '0.75rem', color: '#10b981', fontStyle: 'italic', display: 'flex', alignItems: 'center' }}>✓ Reviewed</span>
+                        )}
+                        <button onClick={() => hideFromHistory(booking.id)} style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', color: '#ef4444', fontSize: '0.75rem', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer' }}>Clear</button>
+                      </div>
+                    )}
+
+                    {status === 'Rejected' && (
+                      <button onClick={() => hideFromHistory(booking.id)} style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', color: '#ef4444', fontSize: '0.75rem', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer' }}>Clear from History</button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {selectedBookingForReview && (
+          <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 9999 }}>
+            <div style={{ backgroundColor: '#1e293b', border: '2px solid #eaa974', borderRadius: '16px', padding: '2rem', maxWidth: '450px', width: '90%', textAlign: 'left' }}>
+              <h3 style={{ color: '#eaa974', margin: '0 0 1rem 0' }}>Write Transparency Review</h3>
+              <form onSubmit={submitReviewHandler} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                <div>
+                  <label style={{ color: '#cbd5e1', display: 'block', marginBottom: '5px', fontSize: '0.9rem' }}>Rating Stars:</label>
+                  <select value={rating} onChange={(e) => setRating(e.target.value)} style={{ padding: '8px', background: '#0f172a', color: '#fff', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '6px', width: '100%' }}>
+                    <option value="5">⭐⭐⭐⭐⭐ (5/5)</option>
+                    <option value="4">⭐⭐⭐⭐ (4/5)</option>
+                    <option value="3">⭐⭐⭐ (3/5)</option>
+                    <option value="2">⭐⭐ (2/5)</option>
+                    <option value="1">⭐ (1/5)</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ color: '#cbd5e1', display: 'block', marginBottom: '5px', fontSize: '0.9rem' }}>Your Message:</label>
+                  <textarea required rows="4" value={comment} onChange={(e) => setComment(e.target.value)} placeholder="How was your ride experience?..." style={{ padding: '10px', background: '#0f172a', color: '#fff', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '6px', width: '100%', boxSizing: 'border-box' }}></textarea>
+                </div>
+                <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '10px' }}>
+                  <button type="button" onClick={() => setSelectedBookingForReview(null)} style={{ padding: '8px 16px', background: 'transparent', color: '#fff', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '6px', cursor: 'pointer' }}>Cancel</button>
+                  <button type="submit" disabled={submittingReview} style={{ padding: '8px 16px', background: '#eaa974', color: '#151c29', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>
+                    {submittingReview ? 'Sending...' : 'Submit Log'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+      </div>
     </div>
   );
 }

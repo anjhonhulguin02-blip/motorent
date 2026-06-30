@@ -6,11 +6,20 @@ export default function Navbar({
   setActiveTab, 
   user, 
   setUser, 
-  setAuthModalOpen 
+  onAuthClick // 🌟 INAYOS: Tinanggap ang tamang prop name galing sa App.jsx
 }) {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef(null);
+
+  // Admin Verification gamit ang iyong email
+  const isAdmin = 
+    user?.email === 'anjhon.hulguin02@gmail.com' || 
+    user?.email?.startsWith('admin') || 
+    user?.email === 'admin@motorent.local';
+
+  // Kuhanin ang display name para sa login greeting
+  const displayName = user?.user_metadata?.username || user?.email?.split('@')[0] || 'User';
 
   useEffect(() => {
     const handleScroll = () => {
@@ -41,60 +50,185 @@ export default function Navbar({
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
     if (!error) {
-      setUser(null);
+      // Kung walang setUser prop na gumagana, maaari rin itong maging sanhi ng isyu,
+      // ngunit ang mahalaga ay masi-clear ang session sa supabase at magre-redirect.
+      if (setUser) setUser(null); 
       setActiveTab('home');
     }
     setIsMenuOpen(false);
   };
 
-  const isAdmin = user?.email === 'admin@motorent.com' || user?.email === 'moto@rent.com';
+  const getNavigationStyle = (isActive) => ({
+    width: '100%',
+    background: isActive ? 'rgba(234, 169, 116, 0.15)' : 'transparent',
+    color: isActive ? '#eaa974' : '#ffffff',
+    border: 'none',
+    padding: '12px 18px',
+    borderRadius: '10px',
+    cursor: 'pointer',
+    fontWeight: '700',
+    fontSize: '0.95rem',
+    textAlign: 'left',
+    display: 'block',
+    transition: 'all 0.2s ease',
+  });
 
   return (
-    <header className={`main-navbar ${isScrolled ? 'scrolled' : ''}`}>
+    <header 
+      className={`main-navbar ${isScrolled ? 'scrolled' : ''}`}
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: isScrolled ? '64px' : '70px',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: '0 2.5rem',
+        zIndex: 99999, // 🌟 INANGAT: Tiniyak na lumulutang ang buong header framework
+        backgroundColor: isScrolled ? '#151c29' : 'transparent',
+        borderBottom: isScrolled ? '1px solid rgba(255, 255, 255, 0.06)' : 'none',
+        transition: 'all 0.3s ease'
+      }}
+    >
       {/* Brand Logo */}
-      <div onClick={handleBrandClick} className="navbar-logo">
-        MOTO<span>RENT</span>
+      <div onClick={handleBrandClick} className="navbar-logo" style={{ color: '#ffffff', fontWeight: '900', fontSize: '1.35rem', cursor: 'pointer' }}>
+        MOTO<span style={{ color: '#eaa974' }}>RENT</span>
       </div>
 
-      {/* UNIFIED INTERFACE SYSTEM (Isang Menu Button para sa Lahat) */}
-      <div className="unified-menu-container" ref={menuRef}>
+      {/* Unified Action Controller Menu */}
+      <div className="unified-menu-container" ref={menuRef} style={{ position: 'relative' }}>
         <button 
           onClick={() => setIsMenuOpen(!isMenuOpen)} 
-          className={`unified-hamburger-btn ${isMenuOpen ? 'open' : ''}`}
-          aria-label="Toggle Navigation Menu"
+          className="unified-hamburger-btn"
+          style={{
+            background: 'rgba(255, 255, 255, 0.05)',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            padding: '8px 16px',
+            borderRadius: '30px',
+            color: '#ffffff',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            cursor: 'pointer',
+            fontWeight: '600'
+          }}
         >
-          <span className="hamburger-text">MENU</span>
-          <div className="hamburger-bars">
-            <span className="bar"></span>
-            <span className="bar"></span>
-            <span className="bar"></span>
-          </div>
+          <span style={{ fontSize: '1.1rem' }}>☰</span>
+          <span style={{ fontSize: '0.88rem' }}>Menu</span>
         </button>
 
+        {/* Premium Translucent Dropdown Menu */}
         {isMenuOpen && (
-          <div className="unified-dropdown-card">
-            <button onClick={() => { setActiveTab('home'); setIsMenuOpen(false); }} style={getNavigationStyle(activeTab === 'home')}>Home</button>
-            <button onClick={() => { setActiveTab('bikes'); setIsMenuOpen(false); }} style={getNavigationStyle(activeTab === 'bikes')}>Bikes</button>
-            <button onClick={() => { setActiveTab('reviews'); setIsMenuOpen(false); }} style={getNavigationStyle(activeTab === 'reviews')}>Reviews</button>
-            <button onClick={() => { setActiveTab('about'); setIsMenuOpen(false); }} style={getNavigationStyle(activeTab === 'about')}>About</button>
-            <button onClick={() => { setActiveTab('contact'); setIsMenuOpen(false); }} style={getNavigationStyle(activeTab === 'contact')}>Contact</button>
+          <div 
+            className="unified-dropdown-card"
+            style={{
+              position: 'absolute',
+              top: 'calc(100% + 12px)',
+              right: 0,
+              width: '240px',
+              backgroundColor: '#1e293b',
+              border: '1px solid rgba(255, 255, 255, 0.12)',
+              borderRadius: '16px',
+              padding: '10px',
+              boxShadow: '0 20px 40px rgba(0, 0, 0, 0.5)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '4px',
+              zIndex: 100000
+            }}
+          >
+            {/* Welcome back greeting structure */}
+            {user && (
+              <div style={{
+                padding: '10px 14px 6px 14px',
+                fontSize: '0.85rem',
+                color: '#94a3b8',
+                fontWeight: '600',
+                borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+                marginBottom: '6px'
+              }}>
+                Welcome back, <span style={{ color: '#eaa974', fontWeight: '700' }}>{displayName}</span>!
+              </div>
+            )}
+
+            <button onClick={() => { setActiveTab('home'); setIsMenuOpen(false); }} style={getNavigationStyle(activeTab === 'home')}>
+              Home
+            </button>
             
+            <button onClick={() => { setActiveTab('bikes'); setIsMenuOpen(false); }} style={getNavigationStyle(activeTab === 'bikes')}>
+              Bikes
+            </button>
+            
+            <button onClick={() => { setActiveTab('about'); setIsMenuOpen(false); }} style={getNavigationStyle(activeTab === 'about')}>
+              Guidelines
+            </button>
+            
+            <button onClick={() => { setActiveTab('reviews'); setIsMenuOpen(false); }} style={getNavigationStyle(activeTab === 'reviews')}>
+              Reviews
+            </button>
+
+            <button onClick={() => { setActiveTab('contact'); setIsMenuOpen(false); }} style={getNavigationStyle(activeTab === 'contact')}>
+              Contact
+            </button>
+            
+            {/* Appears when a regular user is logged in */}
             {user && !isAdmin && (
-              <button onClick={() => { setActiveTab('dashboard'); setIsMenuOpen(false); }} style={getNavigationStyle(activeTab === 'dashboard')}>Dashboard</button>
-            )}
-            {user && isAdmin && (
-              <button onClick={() => { setActiveTab('admin'); setIsMenuOpen(false); }} style={getNavigationStyle(activeTab === 'admin')}>Admin Core</button>
+              <button 
+                onClick={() => { setActiveTab('dashboard'); setIsMenuOpen(false); }} 
+                style={getNavigationStyle(activeTab === 'dashboard')}
+              >
+                My Bookings
+              </button>
             )}
             
-            <div className="dropdown-divider"></div>
+            {/* Appears when your admin email is logged in */}
+            {user && isAdmin && (
+              <button 
+                onClick={() => { setActiveTab('admin'); setIsMenuOpen(false); }} 
+                style={getNavigationStyle(activeTab === 'admin')}
+              >
+                Admin Dashboard
+              </button>
+            )}
+            
+            <div style={{ height: '1px', backgroundColor: 'rgba(255, 255, 255, 0.08)', margin: '6px 0' }}></div>
 
             {user ? (
-              <button onClick={handleLogout} className="btn-logout unified-menu-action-btn">
+              <button 
+                onClick={handleLogout} 
+                className="btn-logout"
+                style={{
+                  width: '100%',
+                  background: 'rgba(231, 76, 60, 0.15)',
+                  color: '#e74c3c',
+                  border: '1px solid rgba(231, 76, 60, 0.3)',
+                  padding: '10px',
+                  borderRadius: '10px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  textAlign: 'center'
+                }}
+              >
                 Logout
               </button>
             ) : (
-              <button onClick={() => { setAuthModalOpen(true); setIsMenuOpen(false); }} className="btn-primary unified-menu-action-btn">
-                Login
+              <button 
+                onClick={() => { onAuthClick(); setIsMenuOpen(false); }} // 🌟 INAYOS: Ginamit ang tamang prop na tinukoy sa taas
+                style={{
+                  width: '100%',
+                  background: '#eaa974',
+                  color: '#151c29',
+                  border: 'none',
+                  padding: '10px',
+                  borderRadius: '10px',
+                  fontWeight: '800',
+                  cursor: 'pointer',
+                  textAlign: 'center'
+                }}
+              >
+                Login / Register
               </button>
             )}
           </div>
@@ -103,19 +237,3 @@ export default function Navbar({
     </header>
   );
 }
-
-const getNavigationStyle = (isActive) => ({
-  background: isActive ? 'rgba(234, 169, 116, 0.12)' : 'transparent',
-  color: isActive ? 'var(--primary-color)' : 'var(--text-color)',
-  border: 'none',
-  padding: '12px 18px',
-  borderRadius: '10px',
-  cursor: 'pointer',
-  fontWeight: '700',
-  fontSize: '0.95rem',
-  width: '100%',
-  textAlign: 'left',
-  transition: 'all 0.2s ease',
-  display: 'block',
-  marginBottom: '2px'
-});

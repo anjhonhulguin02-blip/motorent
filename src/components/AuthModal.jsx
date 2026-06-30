@@ -3,9 +3,9 @@ import { supabase } from '../supabaseClient';
 
 export default function AuthModal({ isOpen, onClose, onLoginSuccess, lang }) {
   const [isSignUp, setIsSignUp] = useState(false);
-  const [emailOrUsername, setEmailOrUsername] = useState(''); // Ginamit nating unpified field para sa login
-  const [email, setEmail] = useState(''); // Gagamitin lamang kapag nag-sa-Sign Up
-  const [username, setUsername] = useState(''); // Bagong state para sa username field
+  const [emailOrUsername, setEmailOrUsername] = useState(''); 
+  const [email, setEmail] = useState(''); 
+  const [username, setUsername] = useState(''); 
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [loading, setLoading] = useState(false);
@@ -18,9 +18,6 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, lang }) {
 
     try {
       if (isSignUp) {
-        // --- PROCESS SIGN UP ---
-        
-        // Proteksyon laban sa may mga spacing o bawal na letra sa username
         const cleanUsername = username.trim().toLowerCase().replace(/\s+/g, '');
 
         if (cleanUsername.length < 3) {
@@ -31,133 +28,153 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, lang }) {
           );
         }
 
-        // Tiyakin muna natin na walang katulad ang username na pinili sa database table mo
-        const { data: existingUser, error: checkError } = await supabase
+        const { data: existingUser } = await supabase
           .from('mga_kliyente')
           .select('username')
           .eq('username', cleanUsername)
           .maybeSingle();
 
-        if (checkError) throw checkError;
         if (existingUser) {
           throw new Error(
             lang === 'en'
-              ? 'Username is already taken! Please choose another one.'
-              : 'May gumagamit na ng username na ito! Pumili ng iba.'
+              ? 'This username is already taken. Please choose another one.'
+              : 'Ang username na ito ay nakuha na. Pumili ng iba.'
           );
         }
 
-        // 1. I-sign up sa Supabase Auth System kasama ang username sa metadata
-        const { data, error: authError } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
-              display_name: fullName,
-              username: cleanUsername, // Isinasama sa secure metadata para sa Navbar greeting
-            },
-          },
+        const pseudoEmail = `${cleanUsername}@motorent.local`;
+
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+          email: pseudoEmail,
+          password: password,
         });
 
         if (authError) throw authError;
 
-        if (data?.user) {
-          // 2. I-insert ang karagdagang impormasyon sa 'mga_kliyente' table mo
+        if (authData?.user) {
           const { error: profileError } = await supabase
             .from('mga_kliyente')
             .insert([
               {
-                id: data.user.id,
-                buong_pangalan: fullName,
-                email_address: email,
-                username: cleanUsername // Pasok sa bagong column na ginawa mo!
-              },
+                id: authData.user.id,
+                buong_pangalan: fullName.trim(),
+                username: cleanUsername,
+                email_address: email.trim(),
+                created_at: new Date().toISOString()
+              }
             ]);
 
-          if (profileError) {
-            console.error("Profile insertion error:", profileError);
-            throw new Error(
-              lang === 'en'
-                ? "Account created, but we couldn't set up your profile table."
-                : "Gawa na ang account, ngunit nagka-error sa pag-save sa profile table."
-            );
-          }
+          if (profileError) throw profileError;
 
-          alert(lang === 'en' 
-            ? `Welcome, ${fullName}! Your account has been created successfully.` 
-            : `Maligayang pagdating, ${fullName}! Matagumpay na nagawa ang iyong account.`);
-          
-          onLoginSuccess();
+          const { data: profileData } = await supabase
+            .from('mga_kliyente')
+            .select('*')
+            .eq('id', authData.user.id)
+            .single();
+
+          alert(lang === 'en' ? '✅ Registration successful!' : '✅ Matagumpay ang iyong pag-rehistro!');
+          if (onLoginSuccess) onLoginSuccess(authData.user, profileData);
+          onClose();
         }
       } else {
-        // --- PROCESS LOGIN (EMAIL OR USERNAME) ---
-        let targetEmail = emailOrUsername.trim();
+        let finalEmail = emailOrUsername.trim();
+        const isEmailInput = finalEmail.includes('@');
 
-        // Kung walang '@', ibig sabihin ay username ang tinype ng kliyente
-        if (!targetEmail.includes('@')) {
-          const searchUsername = targetEmail.toLowerCase();
-          
-          // Hahanapin natin ang katapat na email address sa 'mga_kliyente' table
-          const { data: profile, error: searchError } = await supabase
+        if (!isEmailInput) {
+          const { data: clientData, error: clientError } = await supabase
             .from('mga_kliyente')
-            .select('email_address')
-            .eq('username', searchUsername)
+            .select('username')
+            .eq('username', finalEmail.toLowerCase())
             .maybeSingle();
 
-          if (searchError) throw searchError;
-          
-          if (!profile) {
+          if (clientError) throw clientError;
+          if (!clientData) {
             throw new Error(
               lang === 'en'
-                ? 'Username not found. Please register first.'
-                : 'Hindi mahanap ang username. Mag-rehistro muna.'
+                ? 'Username or Email not found.'
+                : 'Hindi mahanap ang Username o Email.'
             );
           }
-          
-          // Kapag nahanap, ito ang ipapasa natin sa login logic sa ibaba
-          targetEmail = profile.email_address;
+          finalEmail = `${clientData.username}@motorent.local`;
         }
 
-        // I-authenticate gamit ang nahanap na email (o ang tinype na email) at ang password
-        const { error } = await supabase.auth.signInWithPassword({ 
-          email: targetEmail, 
-          password 
+        const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
+          email: finalEmail,
+          password: password,
         });
-        
-        if (error) throw error;
-        onLoginSuccess();
+
+        if (loginError) throw loginError;
+
+        if (loginData?.user) {
+          const { data: profileData, error: profileErr } = await supabase
+            .from('mga_kliyente')
+            .select('*')
+            .eq('id', loginData.user.id)
+            .maybeSingle();
+
+          if (profileErr) console.error("Error retrieving custom client row profile:", profileErr);
+
+          if (onLoginSuccess) onLoginSuccess(loginData.user, profileData || null);
+          onClose();
+        }
       }
-    } catch (error) {
-      alert(error.message);
+    } catch (err) {
+      alert(err.message || 'Authentication Error occured.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="auth-modal" onClick={(e) => e.stopPropagation()}>
-        <button className="close-btn" onClick={onClose}>&times;</button>
-        
-        <div className="auth-header">
+    /* 🌟 PINALAKAS NA OVERLAY LAYERING ENGINE */
+    <div 
+      className="auth-modal-overlay" 
+      onClick={onClose}
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: '100vw',
+        height: '100vh',
+        backgroundColor: 'rgba(15, 23, 42, 0.75)',
+        backdropFilter: 'blur(8px)',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 999999, /* Pinakamataas na layer para laging mapindot kahit saan */
+        pointerEvents: 'auto',
+        boxSizing: 'border-box'
+      }}
+    >
+      <div 
+        className="auth-modal-content" 
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          position: 'relative',
+          zIndex: 1000000,
+          pointerEvents: 'auto' /* Pinipilit ang click tracking ng input fields mo */
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+          <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '800', color: '#ffffff' }}>
+            {isSignUp 
+              ? (lang === 'en' ? 'Create Account' : 'Gumawa ng Account') 
+              : (lang === 'en' ? 'Welcome Back' : 'Mag-log In')}
+          </h2>
           <button 
-            type="button" 
-            className={!isSignUp ? "active-tab" : ""} 
-            onClick={() => setIsSignUp(false)}
-          >
-            {lang === 'en' ? 'Login' : 'Pumasok'}
-          </button>
-          <button 
-            type="button" 
-            className={isSignUp ? "active-tab" : ""} 
-            onClick={() => setIsSignUp(true)}
-          >
-            {lang === 'en' ? 'Sign Up' : 'Mag-rehistro'}
-          </button>
+            onClick={onClose} 
+            style={{ 
+              background: 'none', 
+              border: 'none', 
+              color: '#94a3b8', 
+              fontSize: '1.75rem', 
+              cursor: 'pointer',
+              lineHeight: '1'
+            }}
+          >&times;</button>
         </div>
-        
-        <form className="auth-form" onSubmit={handleSubmit}>
-          {/* LALABAS LANG KAPAG MAGRE-REHISTRO */}
+
+        <form onSubmit={handleSubmit}>
           {isSignUp && (
             <>
               <input 
@@ -167,7 +184,6 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, lang }) {
                 onChange={(e) => setFullName(e.target.value)}
                 required 
               />
-              
               <input 
                 type="text" 
                 placeholder={lang === 'en' ? 'Username (e.g., anjhon21)' : 'Username (Hal. anjhon21)'} 
@@ -175,7 +191,6 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, lang }) {
                 onChange={(e) => setUsername(e.target.value)}
                 required 
               />
-
               <input 
                 type="email" 
                 placeholder="Email Address" 
@@ -186,7 +201,6 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, lang }) {
             </>
           )}
 
-          {/* LALABAS LANG KAPAG PILING PUMASOK (LOGIN SCREEN) */}
           {!isSignUp && (
             <input 
               type="text" 
@@ -205,14 +219,36 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, lang }) {
             required 
           />
 
-          <button type="submit" className="auth-submit-btn" disabled={loading}>
+          <button type="submit" className="auth-submit-btn" disabled={loading} style={{ cursor: 'pointer' }}>
             {loading 
               ? '...' 
               : isSignUp 
                 ? (lang === 'en' ? 'Register & Login' : 'Mag-rehistro at Pumasok') 
-                : (lang === 'en' ? 'Login' : 'Pumasok')}
+                : (lang === 'en' ? 'Login Securely' : 'Ligtas na Pumasok')}
           </button>
         </form>
+
+        <div style={{ marginTop: '1.5rem', textAlign: 'center', fontSize: '0.88rem', color: '#94a3b8' }}>
+          {isSignUp 
+            ? (lang === 'en' ? 'Already have an account? ' : 'May account ka na ba? ') 
+            : (lang === 'en' ? "Don't have an account yet? " : 'Wala ka pa bang account? ')}
+          <button 
+            type="button" 
+            className="auth-toggle-link" 
+            onClick={() => setIsSignUp(!isSignUp)}
+            style={{ 
+              cursor: 'pointer',
+              background: 'none',
+              border: 'none',
+              color: '#eaa974',
+              fontWeight: '700',
+              textDecoration: 'underline',
+              padding: '0 4px'
+            }}
+          >
+            {isSignUp ? (lang === 'en' ? 'Login Here' : 'Pumasok Dito') : (lang === 'en' ? 'Register Here' : 'Mag-rehistro Dito')}
+          </button>
+        </div>
       </div>
     </div>
   );

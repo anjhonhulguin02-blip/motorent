@@ -2,15 +2,14 @@
    PURE GLASSMORPHISM PREMIUM ARCHITECTURE
    ========================================================================== */
 :root {
-  --bg-color: #151c29;          /* Deep Dark Matte Sapphire */
-  --card-bg: rgba(30, 41, 59, 0.4); /* Pure Translucent Glass */
-  --primary-color: #eaa974;     /* Signature Soft Gold Accent */
+  --bg-color: #151c29;          
+  --card-bg: rgba(30, 41, 59, 0.4); 
+  --primary-color: #eaa974;     
   --text-color: #ffffff;
   --text-muted: #94a3b8;
   --border-color: rgba(255, 255, 255, 0.06);
 }
 
-/* Base Document Styles Reset */
 * {
   margin: 0;
   padding: 0;
@@ -39,243 +38,161 @@ body {
   background: var(--primary-color);
 }
 
-/* ==========================================================================
-   ANTI-FLOATING STICKY FOOTER ENGINE ARCHITECTURE
-   ========================================================================== */
-.app-wrapper {
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
+#root {
+  display: flex !important;
+  flex-direction: column !important;
+  min-height: 100vh !important;
 }
 
-.main-content {
-  flex: 1;
-  padding-top: 85px;
-  width: 100%;
-}
-
-.global-footer {
-  padding: 2rem;
-  background-color: #111622;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
-  text-align: center;
-  font-size: 0.85rem;
-  color: var(--text-muted);
-  width: 100%;
-}
-
-/* ==========================================================================
-   UNIFIED PINAG-ISANG NAVBAR DESIGN SYSTEM (Desktop & Mobile)
-   ========================================================================== */
-.main-navbar {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 80px;
-  z-index: 1000;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 2.5rem;
-  background-color: transparent;
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.main-navbar.scrolled {
-  background-color: rgba(21, 28, 41, 0.85);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  height: 70px;
-}
-
-.navbar-logo {
-  font-size: 1.4rem;
-  font-weight: 900;
-  color: var(--text-color);
-  cursor: pointer;
-  letter-spacing: 1px;
-  user-select: none;
-}
-
-.navbar-logo span {
-  color: var(--primary-color);
-}
-
-/* UNIFIED MENU CORE BUTTON GROUP */
-.unified-menu-container {
-  position: relative;
-  display: block; /* Palaging nakabukas kahit desktop or mobile */
-}
-
-.unified-hamburger-btn {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 16px;
-  transition: all 0.2s ease;
-}
-
-.unified-hamburger-btn:hover {
-  background: rgba(234, 169, 116, 0.1);
-  border-color: rgba(234, 169, 116, 0.3);
-}
-
-.hamburger-text {
-  color: var(--text-color);
-  font-weight: 800;
-  font-size: 0.85rem;
-  letter-spacing: 0.5px;
-}
-
-.hamburger-bars {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-
-.unified-hamburger-btn .bar {
-  display: block;
-  width: 20px;
-  height: 2px;
-  background-color: var(--text-color);
-  border-radius: 1px;
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-/* Menu Open Rotation States */
-.unified-hamburger-btn.open .bar:nth-child(1) {
-  transform: translateY(7px) rotate(45deg);
-}
-.unified-hamburger-btn.open .bar:nth-child(2) {
-  opacity: 0;
-}
-.unified-hamburger-btn.open .bar:nth-child(3) {
-  transform: translateY(-7px) rotate(-45deg);
-}
-
-/* DROPDOWN INTERACTION OVERLAY CARD */
-.unified-dropdown-card {
-  position: absolute;
-  top: 55px;
-  right: 0;
-  background-color: rgba(21, 28, 41, 0.96);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 16px;
-  padding: 1rem;
-  display: flex;
-  flex-direction: column;
-  width: 240px;
-  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5);
-  animation: dropdownSlide 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-.dropdown-divider {
-  height: 1px;
-  background-color: rgba(255, 255, 255, 0.08);
-  margin: 8px 0;
-}
-
-.unified-menu-action-btn {
+main {
+  flex: 1 0 auto !important;
   width: 100% !important;
-  text-align: center !important;
-  padding: 12px !important;
-  border-radius: 10px !important;
-  font-size: 0.9rem !important;
 }
 
-.btn-logout {
-  background: rgba(255, 75, 75, 0.1) !important;
-  color: #ff4b4b !important;
-  border: 1px solid rgba(255, 75, 75, 0.2) !important;
-  cursor: pointer !important;
-  font-weight: 700 !important;
-  transition: all 0.2s ease !important;
+footer {
+  flex-shrink: 0 !important;
 }
 
-.btn-logout:hover {
-  background: rgba(255, 75, 75, 0.2) !important;
-}
-
-@keyframes dropdownSlide {
-  from { opacity: 0; transform: translateY(-10px) scale(0.95); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+/* Logo highlight color wrapper */
+.navbar-logo span {
+  color: var(--primary-color) !important;
 }
 
 /* ==========================================================================
-   GRID CORE LAYOUT MATRIX
+   BIKES SECTION LAYOUT CORE MATRIX (HOVER REVEAL LOGIC)
    ========================================================================== */
+.bikes-section {
+  padding: 6rem 1.5rem 4rem 1.5rem !important;
+  max-width: 1200px !important;
+  margin: 0 auto !important;
+}
+
+.section-title {
+  text-align: center !important;
+  margin-bottom: 3.5rem !important;
+  font-size: 2.2rem !important;
+  font-weight: 900 !important;
+  letter-spacing: 1.5px !important;
+  color: var(--text-color) !important;
+}
+
 .bike-grid {
   display: grid !important;
   grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
   gap: 2.5rem !important;
   width: 100% !important;
-  max-width: 1200px !important;
-  margin: 0 auto 5rem auto !important;
-  padding: 0 1.5rem !important;
 }
 
-/* ==========================================================================
-   MINIMALIST GLASS MATRIX HOVER CONTROLS
-   ========================================================================== */
 .bike-card {
   background: var(--card-bg) !important;
   backdrop-filter: blur(12px) !important;
   -webkit-backdrop-filter: blur(12px) !important;
   border: 1px solid var(--border-color) !important;
-  border-radius: 20px !important;
-  padding: 1.8rem !important;
+  border-radius: 24px !important;
+  padding: 2.2rem 2rem !important;
   display: flex !important;
   flex-direction: column !important;
-  justify-content: space-between !important;
-  min-height: 440px !important;
+  position: relative !important;
+  overflow: hidden !important;
+  min-height: 480px !important;
   transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.4s ease, box-shadow 0.4s ease !important;
 }
 
 .bike-card:hover {
-  transform: translateY(-6px) !important;
+  transform: translateY(-8px) !important;
   border-color: rgba(234, 169, 116, 0.35) !important;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25) !important;
-  background: rgba(30, 41, 59, 0.55) !important;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.35) !important;
+}
+
+.bike-card-main-content {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  width: 100% !important;
+}
+
+.bike-title-price-row {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: baseline !important;
+  width: 100% !important;
+  margin-bottom: 1.2rem !important;
+}
+
+.bike-title {
+  font-size: 1.25rem !important;
+  font-weight: 800 !important;
+  color: var(--text-color) !important;
+  margin: 0 !important;
+}
+
+.price-number {
+  font-size: 1.35rem !important;
+  font-weight: 900 !important;
+  color: var(--primary-color) !important;
+}
+
+.price-label {
+  font-size: 0.75rem !important;
+  color: var(--text-muted) !important;
+  margin-left: 2px !important;
 }
 
 .bike-card-image-wrap {
-  width: 100%;
-  height: 180px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 1rem;
+  width: 100% !important;
+  height: 180px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin-top: 1rem !important;
 }
 
 .bike-card-image-wrap img {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
-  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.bike-card:hover .bike-card-image-wrap img {
-  transform: scale(1.06);
+  max-width: 100% !important;
+  max-height: 100% !important;
+  object-fit: contain !important;
 }
 
 .bike-interactive-group {
   opacity: 0 !important;
-  transform: translateY(10px) !important;
-  transition: opacity 0.35s ease, transform 0.35s cubic-bezier(0.16, 1, 0.3, 1) !important;
-  margin-top: 1rem !important;
+  transform: translateY(22px) !important;
+  transition: opacity 0.35s ease, transform 0.35s ease !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 1.2rem !important;
+  margin-top: auto !important;
+  width: 100% !important;
 }
 
 .bike-card:hover .bike-interactive-group {
   opacity: 1 !important;
   transform: translateY(0) !important;
+}
+
+.bike-rates-selector {
+  display: grid !important;
+  grid-template-columns: repeat(4, 1fr) !important;
+  gap: 0.35rem !important;
+  background: rgba(0, 0, 0, 0.25) !important;
+  padding: 4px !important;
+  border-radius: 10px !important;
+  border: 1px solid rgba(255, 255, 255, 0.03) !important;
+}
+
+.bike-rates-selector button {
+  background: transparent !important;
+  border: none !important;
+  color: var(--text-muted) !important;
+  padding: 8px 0 !important;
+  font-weight: 700 !important;
+  font-size: 0.8rem !important;
+  border-radius: 8px !important;
+  cursor: pointer !important;
+}
+
+.bike-rates-selector button.active {
+  background: var(--primary-color) !important;
+  color: #151c29 !important;
 }
 
 .btn-primary {
@@ -288,43 +205,77 @@ body {
   font-weight: 800 !important;
   font-size: 0.95rem !important;
   cursor: pointer !important;
-  box-shadow: 0 4px 12px rgba(234, 169, 116, 0.15) !important;
-  transition: all 0.2s ease !important;
-}
-
-.btn-primary:hover:not(:disabled) {
-  background: #f5be93 !important;
-  box-shadow: 0 6px 18px rgba(234, 169, 116, 0.35) !important;
-}
-
-.btn-primary:disabled {
-  background: #232d3d !important;
-  color: #526073 !important;
-  cursor: not-allowed !important;
-  box-shadow: none !important;
 }
 
 /* ==========================================================================
-   RESPONSIVE DESIGN SYSTEM MEDIA BREAKPOINTS
+   FIXED POP-UP MODAL POSITIONING SYSTEM
    ========================================================================== */
-@media (max-width: 950px) {
-  .bike-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    gap: 1.5rem !important;
-  }
+.auth-modal-overlay,
+.payment-modal-overlay {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  background-color: rgba(10, 14, 22, 0.8) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  z-index: 9999 !important;
 }
 
+.auth-modal-content,
+.payment-modal-content {
+  background: #1e293b !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 24px !important;
+  padding: 2.5rem !important;
+  width: 90% !important;
+  max-width: 460px !important;
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5) !important;
+}
+
+.payment-modal-content {
+  max-width: 580px !important;
+}
+
+/* ==========================================================================
+   FORM INPUT FIELDS STYLE RESTORATION
+   ========================================================================== */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+select,
+textarea {
+  width: 100% !important;
+  padding: 12px 16px !important;
+  background-color: rgba(0, 0, 0, 0.3) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 10px !important;
+  color: #ffffff !important;
+  font-size: 0.95rem !important;
+  outline: none !important;
+  margin-bottom: 1rem !important;
+}
+
+.auth-submit-btn {
+  width: 100% !important;
+  padding: 14px !important;
+  background: var(--primary-color) !important;
+  color: #151c29 !important;
+  border: none !important;
+  border-radius: 12px !important;
+  font-weight: 800 !important;
+  font-size: 1rem !important;
+  cursor: pointer;
+}
+
+@media (max-width: 950px) {
+  .bike-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+}
 @media (max-width: 650px) {
-  .main-navbar {
-    padding: 0 1.5rem;
-  }
-  .bike-grid {
-    grid-template-columns: 1fr !important;
-    gap: 1.5rem !important;
-  }
-  /* Laging visible ang interactive components sa phone view */
-  .bike-interactive-group {
-    opacity: 1 !important;
-    transform: translateY(0) !important;
-  }
+  .bike-grid { grid-template-columns: 1fr !important; }
 }

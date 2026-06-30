@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Booking Payment Gateway</title>
+  <style>
+    body {
+      background-color: #151c29;
+      color: #ffffff;
+      font-family: system-ui, -apple-system, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 1.5rem;
+      box-sizing: border-box;
+    }
+    .container {
+      background-color: #1e293b;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 24px;
+      padding: 2rem 1.5rem;
+      max-width: 400px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    }
+    h1 { font-size: 1.6rem; font-weight: 800; margin: 0 0 0.5rem 0; color: #ffffff; }
+    p { color: #94a3b8; font-size: 0.95rem; margin: 0 0 1.5rem 0; }
+    .qr-card {
+      background-color: #151c29;
+      border-radius: 20px;
+      padding: 1.5rem;
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      margin-bottom: 1.5rem;
+    }
+    .qr-title { font-size: 0.9rem; font-weight: 700; color: #94a3b8; margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.5px; }
+    .qr-image {
+      width: 100%;
+      max-width: 250px;
+      height: auto;
+      object-fit: contain;
+      border-radius: 16px;
+      border: 6px solid #ffffff;
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+    }
+    .total-box {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      padding-top: 1.25rem;
+      margin-bottom: 1.25rem;
+    }
+    .total-label { font-size: 0.95rem; color: #94a3b8; font-weight: 600; }
+    .total-amount { font-size: 1.8rem; color: #eaa974; font-weight: 900; }
+    .notice { 
+      font-size: 0.85rem; 
+      color: #94a3b8; 
+      line-height: 1.5; 
+      background: rgba(234, 169, 116, 0.05); 
+      padding: 12px; 
+      border-radius: 12px; 
+      border: 1px dashed rgba(234, 169, 116, 0.2);
+      margin-bottom: 1.5rem;
+    }
+    .back-btn {
+      display: block;
+      width: 100%;
+      background-color: #eaa974;
+      color: #151c29;
+      text-decoration: none;
+      padding: 14px;
+      border-radius: 12px;
+      font-weight: 800;
+      font-size: 1rem;
+      box-shadow: 0 4px 14px rgba(234, 169, 116, 0.2);
+      box-sizing: border-box;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <h1>Payment Verification</h1>
+    <p id="bike-info">Processing booking...</p>
+
+    <div class="qr-card">
+      <div class="qr-title" id="gateway-title">Scan to Pay</div>
+      <img src="" alt="Payment QR" class="qr-image" id="qr-img">
+    </div>
+
+    <div class="total-box">
+      <span class="total-label">Grand Total:</span>
+      <span class="total-amount" id="total-price">₱0</span>
+    </div>
+
+    <div class="notice">
+      Please take a screenshot of your payment receipt. Admin will verify your transaction to approve your reservation.
+    </div>
+
+    <a href="/" class="back-btn">Go Back to Home Page</a>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const bikeName = params.get('bike') || 'Motorcycle';
+    const total = params.get('total') || '0';
+    const gateway = params.get('gateway') || 'GCash';
+
+    document.getElementById('bike-info').innerText = bikeName;
+    document.getElementById('total-price').innerText = '₱' + Number(total).toLocaleString();
+    document.getElementById('gateway-title').innerText = 'Scan via ' + gateway;
+
+    const qrImg = document.getElementById('qr-img');
+    
+    // Tandaan: Dapat ang gcash-qr.jpg at maya-qr.jpg ay inilipat mo na sa /public folder mo!
+    if (gateway.toLowerCase() === 'maya') {
+      qrImg.src = '/maya-qr.jpg'; 
+    } else {
+      qrImg.src = '/gcash-qr.jpg';
+    }
+  </script>
+</body>
+</html>
