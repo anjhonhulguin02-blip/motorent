@@ -19,7 +19,6 @@ export default function Dashboard({ user, lang, activeTab }) {
     return saved ? JSON.parse(saved) : [];
   });
 
-  // 🌟 BAGONG DYNAMIC FUNCTION: Kino-compute ang eksaktong Return Time para sa Client Card
   const calculateEndTime = (booking) => {
     let startDate;
     
@@ -36,9 +35,8 @@ export default function Dashboard({ user, lang, activeTab }) {
     }
 
     const packageStr = (booking.uri_ng_arkila || '').toLowerCase();
-    let baseHours = 24; // Fallback default
+    let baseHours = 24; 
     
-    // Eksaktong 1 oras kapag naka Per Hour setup
     if (packageStr.includes('per hour') || packageStr.includes('hourly')) {
       baseHours = 1;
     } else if (packageStr.includes('12')) {
@@ -169,14 +167,19 @@ export default function Dashboard({ user, lang, activeTab }) {
 
     setSubmittingReview(true);
     try {
+      // ✅ Kumuha ng fresh session para maiwasan ang 401 Unauthorized Error
+      const { data: sessionData } = await supabase.auth.getSession();
+      const activeUserId = user?.id || sessionData?.session?.user?.id || null;
+      const activeName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || sessionData?.session?.user?.user_metadata?.full_name || 'Client';
+
       const { error } = await supabase
         .from('mga_review')
         .insert([{
           arkila_id: selectedBookingForReview.id,
-          id_ng_gumagamit: user?.id,
-          pangalan_ng_kliyente: user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Client',
+          id_ng_gumagamit: activeUserId,
+          pangalan_ng_kliyente: activeName,
           rating: parseInt(rating),
-          motor_na_narkila: selectedBookingForReview.pangalan_ng_motor || selectedBookingForReview.motor_na_narkila || 'Motorcycle Unit',
+          motor_na_narkila: selectedBookingForReview.pangalan_ng_motor || selectedBookingForReview.motor_na_arkila || 'Motorcycle Unit',
           komento: comment
         }]);
 
@@ -288,7 +291,6 @@ export default function Dashboard({ user, lang, activeTab }) {
               const status = booking.estado || booking.status;
               const isAlreadyReviewed = reviewedBookingIds.includes(booking.id);
 
-              // 🌟 DYNAMIC PINAGSAMA ANG PETSA AT ORAS NG PAGKUHA PARA SA PROPER FORMATTING
               let pickupDateObj = new Date(booking.created_at);
               if (booking.petsa_ng_pagkuha) {
                 const timeString = booking.oras_ng_pagkuha || '00:00';
@@ -306,7 +308,6 @@ export default function Dashboard({ user, lang, activeTab }) {
                 minute: '2-digit'
               });
 
-              // 🌟 AUTOMATIC AT AKURADONG COMPUTATION NG RETURN DEADLINE BASE SA PACKAGE AT DURATION
               const endTimeObj = calculateEndTime(booking);
               const displayReturn = endTimeObj.toLocaleString('en-US', {
                 month: 'short',
@@ -342,7 +343,6 @@ export default function Dashboard({ user, lang, activeTab }) {
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px', fontSize: '0.9rem', color: '#cbd5e1' }}>
                     <div><strong>Rent Price:</strong> ₱{displayPrice}</div>
                     <div><strong>Pickup:</strong> {displayPickup}</div>
-                    {/* Dito makikita ng customer ang eksaktong real deadline */}
                     <div><strong>Return:</strong> {displayReturn}</div>
                   </div>
 
@@ -390,14 +390,36 @@ export default function Dashboard({ user, lang, activeTab }) {
           </div>
         )}
 
+        {/* ✅ INAYOS NA REVIEW MODAL (CENTERED AT RESPONSIVE) */}
         {selectedBookingForReview && (
-          <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 9999 }}>
-            <div style={{ backgroundColor: '#1e293b', border: '2px solid #eaa974', borderRadius: '16px', padding: '2rem', maxWidth: '450px', width: '90%', textAlign: 'left' }}>
-              <h3 style={{ color: '#eaa974', margin: '0 0 1rem 0' }}>Write Transparency Review</h3>
-              <form onSubmit={submitReviewHandler} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                <div>
-                  <label style={{ color: '#cbd5e1', display: 'block', marginBottom: '5px', fontSize: '0.9rem' }}>Rating Stars:</label>
-                  <select value={rating} onChange={(e) => setRating(e.target.value)} style={{ padding: '8px', background: '#0f172a', color: '#fff', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '6px', width: '100%' }}>
+          <div style={{ 
+            position: 'fixed', 
+            inset: 0, 
+            backgroundColor: 'rgba(0,0,0,0.85)', 
+            display: 'flex', 
+            justifyContent: 'center', 
+            alignItems: 'center', 
+            zIndex: 9999,
+            padding: '1rem'
+          }}>
+            <div style={{ 
+              backgroundColor: '#1e293b', 
+              border: '2px solid #eaa974', 
+              borderRadius: '16px', 
+              padding: '2rem', 
+              width: '100%', 
+              maxWidth: '450px', 
+              display: 'flex', 
+              flexDirection: 'column',
+              boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
+              boxSizing: 'border-box'
+            }}>
+              <h3 style={{ color: '#eaa974', margin: '0 0 1rem 0', textAlign: 'center', fontSize: '1.4rem' }}>Write a Review</h3>
+              
+              <form onSubmit={submitReviewHandler} style={{ display: 'flex', flexDirection: 'column', gap: '15px', width: '100%' }}>
+                <div style={{ textAlign: 'left' }}>
+                  <label style={{ color: '#cbd5e1', display: 'block', marginBottom: '5px', fontSize: '0.95rem', fontWeight: 'bold' }}>Rating Stars:</label>
+                  <select value={rating} onChange={(e) => setRating(e.target.value)} style={{ padding: '10px', background: '#0f172a', color: '#fff', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '6px', width: '100%', fontSize: '1rem', outline: 'none' }}>
                     <option value="5">⭐⭐⭐⭐⭐ (5/5)</option>
                     <option value="4">⭐⭐⭐⭐ (4/5)</option>
                     <option value="3">⭐⭐⭐ (3/5)</option>
@@ -405,13 +427,15 @@ export default function Dashboard({ user, lang, activeTab }) {
                     <option value="1">⭐ (1/5)</option>
                   </select>
                 </div>
-                <div>
-                  <label style={{ color: '#cbd5e1', display: 'block', marginBottom: '5px', fontSize: '0.9rem' }}>Your Message:</label>
-                  <textarea required rows="4" value={comment} onChange={(e) => setComment(e.target.value)} placeholder="How was your ride experience?..." style={{ padding: '10px', background: '#0f172a', color: '#fff', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '6px', width: '100%', boxSizing: 'border-box' }}></textarea>
+                
+                <div style={{ textAlign: 'left' }}>
+                  <label style={{ color: '#cbd5e1', display: 'block', marginBottom: '5px', fontSize: '0.95rem', fontWeight: 'bold' }}>Your Message:</label>
+                  <textarea required rows="4" value={comment} onChange={(e) => setComment(e.target.value)} placeholder="How was your ride experience?..." style={{ padding: '12px', background: '#0f172a', color: '#fff', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '6px', width: '100%', boxSizing: 'border-box', fontSize: '0.95rem', outline: 'none', resize: 'vertical' }}></textarea>
                 </div>
-                <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '10px' }}>
-                  <button type="button" onClick={() => setSelectedBookingForReview(null)} style={{ padding: '8px 16px', background: 'transparent', color: '#fff', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '6px', cursor: 'pointer' }}>Cancel</button>
-                  <button type="submit" disabled={submittingReview} style={{ padding: '8px 16px', background: '#eaa974', color: '#151c29', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>
+                
+                <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginTop: '10px' }}>
+                  <button type="button" onClick={() => setSelectedBookingForReview(null)} style={{ flex: 1, padding: '10px 16px', background: 'transparent', color: '#fff', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Cancel</button>
+                  <button type="submit" disabled={submittingReview} style={{ flex: 1, padding: '10px 16px', background: '#eaa974', color: '#151c29', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>
                     {submittingReview ? 'Sending...' : 'Submit Log'}
                   </button>
                 </div>
