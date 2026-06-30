@@ -93,21 +93,22 @@ export default function Dashboard({ user, lang, activeTab }) {
       }
       if (!activeId) return;
 
+      // Safe check select logic na may built-in error handling para hindi mag-crash ang dashboard
       const { data, error } = await supabase
         .from('mga_review')
         .select('arkila_id')
         .eq('id_ng_gumagamit', activeId);
 
       if (error) {
-        console.warn("Reviews array fetch skipped:", error.message);
-        return;
+        console.warn("Reviews array fetch caught inside safe-mode:", error.message);
+        return; // Hihinto lang nang tahimik, hahayaan pa rin gumana ang UI buttons
       }
       
       if (data) {
         setReviewedBookingIds(data.map(r => r.arkila_id));
       }
     } catch (err) {
-      console.error("Review array lookup error:", err);
+      console.error("Review array lookup error caught:", err);
     }
   };
 
