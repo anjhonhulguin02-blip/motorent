@@ -167,9 +167,9 @@ export default function Dashboard({ user, lang, activeTab }) {
 
     setSubmittingReview(true);
     try {
-      // ✅ Kumuha ng fresh session para maiwasan ang 401 Unauthorized Error
       const { data: sessionData } = await supabase.auth.getSession();
-      const activeUserId = user?.id || sessionData?.session?.user?.id || null;
+      
+      const activeUserId = user?.id || sessionData?.session?.user?.id || selectedBookingForReview.user_id || "guest-user";
       const activeName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || sessionData?.session?.user?.user_metadata?.full_name || 'Client';
 
       const { error } = await supabase
@@ -390,7 +390,6 @@ export default function Dashboard({ user, lang, activeTab }) {
           </div>
         )}
 
-        {/* ✅ INAYOS NA REVIEW MODAL (CENTERED AT RESPONSIVE) */}
         {selectedBookingForReview && (
           <div style={{ 
             position: 'fixed', 
