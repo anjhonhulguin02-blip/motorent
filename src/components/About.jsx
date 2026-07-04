@@ -31,15 +31,14 @@ export default function About({ lang }) {
         }
       `}</style>
 
-      {/* PLAIN DARK BLUE HEADER BLOCK BACKGROUND ACCENT (Para hindi matakpan ng navbar) */}
+      {/* 🧼 FIXED NAVBAR AREA: Ginawang transparent at tinanggal ang border para mag-blend sa background */}
       <div style={{
         position: 'absolute',
         top: 0,
         left: 0,
         width: '100%',
         height: '90px', 
-        backgroundColor: '#0f172a', 
-        borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+        backgroundColor: 'transparent', 
         zIndex: 10
       }} />
 

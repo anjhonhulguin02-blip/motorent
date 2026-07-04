@@ -12,11 +12,12 @@ export default function AdminDashboard({ onStatusUpdate, lang }) {
   const calculateEndTime = (booking) => {
     let startDate;
     
-    if (booking.petsa_ng_pagkuha) {
+    if (booking.tunay_na_oras_ng_kuha) {
+      startDate = new Date(booking.tunay_na_oras_ng_kuha);
+    } else if (booking.petsa_ng_pagkuha) {
       const timeString = booking.oras_ng_pagkuha || '00:00';
       const combinedDateTime = `${booking.petsa_ng_pagkuha} ${timeString}`;
       startDate = new Date(combinedDateTime);
-      
       if (isNaN(startDate.getTime())) {
         startDate = new Date(booking.created_at);
       }
@@ -57,7 +58,8 @@ export default function AdminDashboard({ onStatusUpdate, lang }) {
 
       if (data) {
         setAllBookings(data);
-        checkAndAutoCompleteRentals(data);
+        // 🚨 KINOMENT OUT: Inalis muna ang auto-complete para mapagana ang manual checking ng Overtime/Returned status mo.
+        // checkAndAutoCompleteRentals(data);
       } else {
         setAllBookings([]);
       }
@@ -69,30 +71,34 @@ export default function AdminDashboard({ onStatusUpdate, lang }) {
     }
   };
 
-  // 🌟 INAYOS NA STATUS UPDATE (Kasama na ang Availability ng Motor)
   const updateStatus = async (bookingId, newStatus, bikeName) => {
     if (!bookingId) return;
     try {
-      // 1. I-update ang status ng arkila
+      let updatePayload = { status: newStatus, status_ng_renta: newStatus };
+
+      if (newStatus === 'Picked Up') {
+        updatePayload.tunay_na_oras_ng_kuha = new Date().toISOString(); 
+      }
+
       const { error: mainError } = await supabase
         .from('mga_arkila')
-        .update({ status: newStatus, status_ng_renta: newStatus })
+        .update(updatePayload)
         .eq('id', bookingId);
 
       if (mainError) throw mainError;
 
-      // 2. I-update ang status ng motor sa database (Para hindi mag-double book)
+      // 🧠 SMART ENGINE: Kapag Approved, Picked Up, o Returned — NANANATILING RESERVED/RENTED ang motor para walang maka-book habang sinusuri mo pa.
       let bikeStatus = 'Available'; 
-      if (newStatus === 'Approved') {
-        bikeStatus = 'Rented'; // Hide sa iba
+      if (newStatus === 'Approved' || newStatus === 'Picked Up' || newStatus === 'Returned') {
+        bikeStatus = 'Rented';
       } else if (newStatus === 'Pending' || newStatus === 'Rejected' || newStatus === 'Completed') {
-        bikeStatus = 'Available'; // Ipakita ulit sa iba
+        bikeStatus = 'Available';
       }
 
       const { error: bikeError } = await supabase
         .from('mga_motor') 
         .update({ status: bikeStatus }) 
-        .eq('pangalan', bikeName); 
+        .ilike('pangalan', `%${bikeName}%`); 
 
       if (bikeError) {
         console.error("Error updating motorcycle availability:", bikeError);
@@ -102,7 +108,7 @@ export default function AdminDashboard({ onStatusUpdate, lang }) {
         onStatusUpdate(bikeName, newStatus);
       }
 
-      alert(lang === 'en' ? `Booking successfully marked as ${newStatus}!` : `Matagumpay na nailipat ang booking sa status na: ${newStatus}!`);
+      alert(lang === 'en' ? `Booking status updated to ${newStatus}!` : `Matagumpay na nailipat sa status na: ${newStatus}!`);
       fetchAllBookings(); 
     } catch (err) {
       console.error("Error setting control state status:", err);
@@ -112,21 +118,29 @@ export default function AdminDashboard({ onStatusUpdate, lang }) {
 
   const deleteBookingRecord = async (bookingId) => {
     if (!bookingId) return;
-    const confirmCheck = window.confirm(lang === 'en' ? "Are you sure you want to permanently delete this archive record?" : "Sigurado ka bang nais mong burahin nang tuluyan ang record na ito?");
+    const confirmCheck = window.confirm(
+      lang === 'en' 
+        ? "Are you sure you want to remove this record from the dashboard? (It will be safely archived in the database)" 
+        : "Sigurado ka bang nais mong alisin ang record na ito sa dashboard? (Mananatili itong ligtas sa iyong database/Supabase)"
+    );
     if (!confirmCheck) return;
 
     try {
-      const { error } = await supabase.from('mga_arkila').delete().eq('id', bookingId);
+      const { error } = await supabase
+        .from('mga_arkila')
+        .update({ status_ng_renta: 'Archived', status: 'Archived' })
+        .eq('id', bookingId);
+
       if (error) throw error;
-      alert(lang === 'en' ? "Record successfully purged." : "Matagumpay na nabura ang archival logs.");
+      alert(lang === 'en' ? "Record successfully hidden and archived." : "Matagumpay na naitago at nai-archive ang log.");
       fetchAllBookings();
     } catch (err) {
-      console.error("Failure processing delete protocol:", err);
-      alert("Error processing delete pipeline: " + err.message);
+      console.error("Failure processing soft-delete protocol:", err);
+      alert("Error processing archive pipeline: " + err.message);
     }
   };
 
-  // 🌟 INAYOS NA AUTO-COMPLETE (Ibabalik sa "Available" ang motor)
+  // 🚨 OPTIONAL BACKEND CHECKER (Naka-disable sa ngayon para protektahan ang Overtime inspection flow mo)
   const checkAndAutoCompleteRentals = (bookingsList) => {
     if (!bookingsList || bookingsList.length === 0) return;
     const realTimeNow = new Date();
@@ -135,22 +149,20 @@ export default function AdminDashboard({ onStatusUpdate, lang }) {
       const status = booking.status_ng_renta || booking.status;
       const bikeName = booking.pangalan_ng_motor || booking.motor_na_arkila;
 
-      if (status === 'Approved') {
+      if (status === 'Picked Up') {
         const expectedEndTime = calculateEndTime(booking);
         
         if (realTimeNow >= expectedEndTime) {
           try {
-            // 1. Kumpletuhin ang arkila
             await supabase
               .from('mga_arkila')
               .update({ status: 'Completed', status_ng_renta: 'Completed' })
               .eq('id', booking.id);
 
-            // 2. Gawing 'Available' ulit ang motor
             await supabase
               .from('mga_motor')
               .update({ status: 'Available' })
-              .eq('pangalan', bikeName);
+              .ilike('pangalan', `%${bikeName}%`);
 
           } catch (e) {
             console.error("Auto expiration routine intercept error:", e);
@@ -180,20 +192,24 @@ export default function AdminDashboard({ onStatusUpdate, lang }) {
       setCurrentTime(new Date());
     }, 1000);
 
-    const autoChecker = setInterval(() => {
-      checkAndAutoCompleteRentals(allBookings);
-    }, 15000);
+    // 🚨 KINOMENT OUT: Pinatay ang loop checker para hindi mag-auto-complete kapag late na ang pagsasauli
+    // const autoChecker = setInterval(() => {
+    //   checkAndAutoCompleteRentals(allBookings);
+    // }, 15000);
 
     return () => {
       clearInterval(timer);
-      clearInterval(autoChecker);
+      // clearInterval(autoChecker);
     };
   }, [allBookings]);
 
   const filteredCollections = allBookings.filter((b) => {
     const activeState = b.status_ng_renta || b.status || 'Pending';
+    if (activeState === 'Archived') return false; 
+
+    // 🌟 KASAMA NA: Kasama na rito ang 'Returned' status para makita mo pa rin sa Active Bookings list habang pending ang inspection
     if (currentTab === 'active') {
-      return activeState === 'Pending' || activeState === 'Approved';
+      return activeState === 'Pending' || activeState === 'Approved' || activeState === 'Picked Up' || activeState === 'Returned';
     } else {
       return activeState === 'Completed' || activeState === 'Rejected';
     }
@@ -215,6 +231,20 @@ export default function AdminDashboard({ onStatusUpdate, lang }) {
       boxSizing: 'border-box', padding: '130px 2rem 4rem 2rem',
       backgroundColor: '#0f172a'
     }}>
+      
+      <style>{`
+        @media (max-width: 768px) {
+          button[style*="position: absolute"], 
+          button[style*="position: fixed"],
+          div[style*="position: absolute"] > button,
+          div[style*="position: fixed"] > button {
+            top: 90px !important; 
+            right: 15px !important;
+            z-index: 9999 !important;
+          }
+        }
+      `}</style>
+
       <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
         
         <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
@@ -274,6 +304,7 @@ export default function AdminDashboard({ onStatusUpdate, lang }) {
                     <th style={{ padding: '18px 20px', color: '#eaa974', fontSize: '0.85rem', fontWeight: '800', textTransform: 'uppercase' }}>User ID Token</th>
                     <th style={{ padding: '18px 20px', color: '#eaa974', fontSize: '0.85rem', fontWeight: '800', textTransform: 'uppercase' }}>Rental Timeline</th>
                     <th style={{ padding: '18px 20px', color: '#eaa974', fontSize: '0.85rem', fontWeight: '800', textTransform: 'uppercase' }}>Total Payment</th>
+                    <th style={{ padding: '18px 20px', color: '#eaa974', fontSize: '0.85rem', fontWeight: '800', textTransform: 'uppercase' }}>Payment Method</th>
                     <th style={{ padding: '18px 20px', color: '#eaa974', fontSize: '0.85rem', fontWeight: '800', textTransform: 'uppercase' }}>Proof</th>
                     <th style={{ padding: '18px 20px', color: '#eaa974', fontSize: '0.85rem', fontWeight: '800', textTransform: 'uppercase', textAlign: 'right' }}>Actions</th>
                   </tr>
@@ -283,6 +314,8 @@ export default function AdminDashboard({ onStatusUpdate, lang }) {
                     const bikeName = booking.pangalan_ng_motor || booking.motor_na_arkila || 'Unknown Unit';
                     const totalPrice = booking.kabuuang_bayad || booking.kabuuang_halaga || 0;
                     const status = booking.status_ng_renta || booking.status || 'Pending';
+                    const rawMethod = booking.paraan_ng_pagbayad || 'N/A';
+                    const isCash = rawMethod.toLowerCase() === 'cash';
                     
                     const receiptUrl = booking.resibo_url || booking.proof_of_payment || booking.proof || null;
                     const govIdUrl = booking.id_gobyerno_url || booking.valid_id_url || booking.id_url || booking.id_picture_url || booking.id_picture || null;
@@ -305,10 +338,10 @@ export default function AdminDashboard({ onStatusUpdate, lang }) {
                             <span style={{ color: '#ffffff', fontWeight: '800', fontSize: '1.05rem' }}>{bikeName}</span>
                             <span style={{
                               padding: '3px 10px', borderRadius: '99px', fontSize: '0.65rem', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.5px',
-                              backgroundColor: status === 'Pending' ? 'rgba(234, 169, 116, 0.15)' : status === 'Approved' ? 'rgba(34, 197, 94, 0.15)' : status === 'Completed' ? 'rgba(59, 130, 246, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                              color: status === 'Pending' ? '#eaa974' : status === 'Approved' ? '#22c55e' : status === 'Completed' ? '#3b82f6' : '#ef4444'
+                              backgroundColor: status === 'Pending' ? 'rgba(234, 169, 116, 0.15)' : status === 'Approved' ? 'rgba(245, 158, 11, 0.2)' : status === 'Picked Up' ? 'rgba(34, 197, 94, 0.15)' : status === 'Returned' ? 'rgba(168, 85, 247, 0.2)' : status === 'Completed' ? 'rgba(59, 130, 246, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                              color: status === 'Pending' ? '#eaa974' : status === 'Approved' ? '#f59e0b' : status === 'Picked Up' ? '#22c55e' : status === 'Returned' ? '#a855f7' : status === 'Completed' ? '#3b82f6' : '#ef4444'
                             }}>
-                              {status}
+                              {status === 'Approved' ? 'Approved (Waiting)' : status === 'Returned' ? (lang === 'en' ? '🏍️ Returned (Inspecting)' : '🏍️ Nabalik Na (Sinusuri)') : status}
                             </span>
                           </div>
                         </td>
@@ -332,19 +365,52 @@ export default function AdminDashboard({ onStatusUpdate, lang }) {
                         </td>
 
                         <td style={{ padding: '20px' }}>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                            <span style={{ color: '#ffffff', fontSize: '0.9rem', fontWeight: '600' }}>{booking.uri_ng_arkila || 'N/A'}</span>
-                            <span style={{ color: '#94a3b8', fontSize: '0.8rem' }}>Duration: <strong style={{ color: '#eaa974' }}>{booking.tagal_ng_arkila || 1}x</strong></span>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                            <span style={{ color: '#ffffff', fontSize: '0.9rem', fontWeight: '600' }}>
+                              {booking.uri_ng_arkila || 'N/A'} (x{booking.tagal_ng_arkila || 1})
+                            </span>
                             
-                            {status === 'Approved' && (
+                            <div style={{ 
+                              fontSize: '0.78rem', 
+                              color: '#cbd5e1', 
+                              display: 'flex', 
+                              flexDirection: 'column', 
+                              gap: '4px', 
+                              backgroundColor: 'rgba(0,0,0,0.15)', 
+                              padding: '8px 12px', 
+                              borderRadius: '8px', 
+                              border: '1px solid rgba(255,255,255,0.04)' 
+                            }}>
+                              {booking.tunay_na_oras_ng_kuha ? (
+                                <>
+                                  <div>
+                                    <strong style={{ color: '#22c55e' }}>🚀 Actual Release: </strong> 
+                                    <span style={{ fontFamily: 'monospace', color: '#22c55e', fontWeight: 'bold' }}>
+                                      {new Date(booking.tunay_na_oras_ng_kuha).toLocaleString(lang === 'en' ? 'en-US' : 'fil-PH', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <strong style={{ color: status === 'Completed' ? '#3b82f6' : '#22c55e' }}>🛬 Expiration/Return: </strong> 
+                                    <span style={{ fontFamily: 'monospace' }}>
+                                      {endTime.toLocaleString(lang === 'en' ? 'en-US' : 'fil-PH', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                  </div>
+                                </>
+                              ) : (
+                                <div style={{ color: '#94a3b8', fontStyle: 'italic', textAlign: 'center', padding: '4px 0' }}>
+                                  {lang === 'en' ? 'Waiting for unit release...' : 'Naghihintay na mai-release ang motor...'}
+                                </div>
+                              )}
+                            </div>
+
+                            {status === 'Picked Up' && (
                               <div style={{ 
-                                marginTop: '6px', padding: '6px 8px', borderRadius: '6px', 
+                                marginTop: '2px', padding: '4px 8px', borderRadius: '4px', textAlign: 'center',
                                 backgroundColor: isExpired ? 'rgba(239, 68, 68, 0.1)' : 'rgba(34, 197, 94, 0.1)',
                                 border: `1px solid ${isExpired ? 'rgba(239, 68, 68, 0.3)' : 'rgba(34, 197, 94, 0.3)'}`
                               }}>
-                                <span style={{ color: '#cbd5e1', fontSize: '0.7rem', display: 'block' }}>Expected Return:</span>
-                                <span style={{ color: isExpired ? '#ef4444' : '#22c55e', fontSize: '0.75rem', fontWeight: 'bold' }}>
-                                  {endTime.toLocaleString()}
+                                <span style={{ color: isExpired ? '#ef4444' : '#22c55e', fontSize: '0.72rem', fontWeight: 'bold', textTransform: 'uppercase' }}>
+                                  {isExpired ? (lang === 'en' ? 'Overdue / Late Return' : 'Overdue / Huli sa Pagbabalik') : (lang === 'en' ? 'On-Going Rental' : 'Kasalukuyang Nirerentahan')}
                                 </span>
                               </div>
                             )}
@@ -352,10 +418,22 @@ export default function AdminDashboard({ onStatusUpdate, lang }) {
                         </td>
 
                         <td style={{ padding: '20px' }}>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                            <span style={{ color: '#eaa974', fontWeight: '900', fontSize: '1.2rem' }}>₱{totalPrice}</span>
-                            <span style={{ color: '#94a3b8', fontSize: '0.78rem' }}>via {booking.paraan_ng_pagbayad || 'N/A'}</span>
-                          </div>
+                          <span style={{ color: '#eaa974', fontWeight: '900', fontSize: '1.2rem' }}>₱{totalPrice}</span>
+                        </td>
+
+                        <td style={{ padding: '20px' }}>
+                          <span style={{
+                            padding: '5px 12px',
+                            borderRadius: '8px',
+                            fontSize: '0.8rem',
+                            fontWeight: '700',
+                            textTransform: 'capitalize',
+                            backgroundColor: isCash ? 'rgba(34, 197, 94, 0.12)' : 'rgba(59, 130, 246, 0.12)',
+                            color: isCash ? '#4ade80' : '#60a5fa',
+                            border: `1px solid ${isCash ? 'rgba(34, 197, 94, 0.25)' : 'rgba(59, 130, 246, 0.25)'}`
+                          }}>
+                            {isCash ? '💵 Cash' : '📱 eWallet'}
+                          </span>
                         </td>
 
                         <td style={{ padding: '20px' }}>
@@ -372,45 +450,56 @@ export default function AdminDashboard({ onStatusUpdate, lang }) {
                                 fontWeight: '700',
                                 cursor: 'pointer',
                                 transition: 'all 0.2s',
-                                display: 'block'
+                                display: 'block',
+                                width: '100%',
+                                textAlign: 'center',
+                                marginBottom: govIdUrl ? '6px' : '0'
                               }}
                               onMouseEnter={(e) => { e.target.style.backgroundColor = '#eaa974'; e.target.style.color = '#151c29'; }}
                               onMouseLeave={(e) => { e.target.style.backgroundColor = 'rgba(234, 169, 116, 0.1)'; e.target.style.color = '#eaa974'; }}
                             >
-                              {lang === 'en' ? 'View Proof' : 'Tingnan'}
+                              📸 {lang === 'en' ? 'Payment Receipt' : 'Resibo'}
                             </button>
                           ) : (
-                            <span style={{ fontSize: '0.8rem', color: '#64748b', fontStyle: 'italic', display: 'block' }}>
-                              {booking.paraan_ng_pagbayad === 'Cash' ? 'Cash Basis' : 'No Image'}
-                            </span>
+                            !isCash && (
+                              <span style={{ fontSize: '0.78rem', color: '#64748b', fontStyle: 'italic', display: 'block', marginBottom: govIdUrl ? '6px' : '0' }}>
+                                No Receipt Attachment
+                              </span>
+                            )
                           )}
 
-                          {govIdUrl && (
+                          {govIdUrl ? (
                             <button
                               onClick={() => setSelectedProofImg(govIdUrl)}
                               style={{
-                                backgroundColor: 'transparent',
-                                border: '1px solid #f472b6',
+                                backgroundColor: 'rgba(244, 114, 182, 0.1)',
+                                border: '1px solid rgba(244, 114, 182, 0.4)',
                                 color: '#f472b6',
                                 padding: '6px 12px',
                                 borderRadius: '8px',
                                 fontSize: '0.8rem',
                                 fontWeight: '700',
                                 cursor: 'pointer',
-                                marginTop: '8px',
                                 display: 'block',
-                                transition: 'all 0.2s'
+                                width: '100%',
+                                textAlign: 'center',
+                                transition: 'all 0.2s',
+                                marginTop: (!receiptUrl && isCash) ? '0' : '4px'
                               }}
-                              onMouseEnter={(e) => { e.target.style.backgroundColor = 'rgba(244, 114, 182, 0.1)'; }}
-                              onMouseLeave={(e) => { e.target.style.backgroundColor = 'transparent'; }}
+                              onMouseEnter={(e) => { e.target.style.backgroundColor = '#f472b6'; e.target.style.color = '#151c29'; }}
+                              onMouseLeave={(e) => { e.target.style.backgroundColor = 'rgba(244, 114, 182, 0.1)'; e.target.style.color = '#f472b6'; }}
                             >
                               🪪 {lang === 'en' ? 'View Gov ID' : 'Tingnan ang ID'}
                             </button>
+                          ) : (
+                            <span style={{ fontSize: '0.75rem', color: '#64748b', fontStyle: 'italic', display: 'block' }}>
+                              ⚠️ No ID Submitted
+                            </span>
                           )}
                         </td>
 
                         <td style={{ padding: '20px', textAlign: 'right' }}>
-                          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
                             {status === 'Pending' && (
                               <>
                                 <button 
@@ -430,10 +519,30 @@ export default function AdminDashboard({ onStatusUpdate, lang }) {
 
                             {status === 'Approved' && (
                               <button 
+                                onClick={() => updateStatus(booking.id, 'Picked Up', bikeName)} 
+                                style={{ padding: '10px 16px', backgroundColor: '#f59e0b', color: '#151c29', border: 'none', borderRadius: '8px', fontWeight: '900', cursor: 'pointer', fontSize: '0.8rem' }}
+                              >
+                                🔑 {lang === 'en' ? 'Release / Pick Up' : 'I-Pick Up na'}
+                              </button>
+                            )}
+
+                            {/* 🌟 STEP 1: Sa halip na derecho Complete, i-Mark muna natin bilang Returned (Soli na ang Motor sa shop pero che-check-in pa) */}
+                            {status === 'Picked Up' && (
+                              <button 
+                                onClick={() => updateStatus(booking.id, 'Returned', bikeName)} 
+                                style={{ padding: '10px 16px', backgroundColor: '#a855f7', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '900', cursor: 'pointer', fontSize: '0.8rem' }}
+                              >
+                                🛬 {lang === 'en' ? 'Mark as Returned' : 'I-Mark na Nabalik'}
+                              </button>
+                            )}
+
+                            {/* 🌟 STEP 2: Kapag 'Returned' na, dito mo na kukunin ang multa (kung late sila) bago tuluyang i-Settle / I-Complete ang transaksyon */}
+                            {status === 'Returned' && (
+                              <button 
                                 onClick={() => updateStatus(booking.id, 'Completed', bikeName)} 
                                 style={{ padding: '10px 16px', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '900', cursor: 'pointer', fontSize: '0.8rem' }}
                               >
-                                {lang === 'en' ? 'Mark as Completed' : 'Ibalik ang Motor'}
+                                🏁 {lang === 'en' ? 'Settle & Complete' : 'I-Settle at I-Complete'}
                               </button>
                             )}
 
@@ -466,41 +575,77 @@ export default function AdminDashboard({ onStatusUpdate, lang }) {
           style={{
             position: 'fixed',
             top: 0, left: 0, right: 0, bottom: 0,
-            backgroundColor: 'rgba(15, 23, 42, 0.9)',
-            backdropFilter: 'blur(12px)',
-            WebkitBackdropFilter: 'blur(12px)',
+            backgroundColor: 'rgba(10, 15, 30, 0.95)',
+            backdropFilter: 'blur(20px)',
+            WebkitBackdropFilter: 'blur(20px)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            zIndex: 99999,
-            padding: '2rem'
+            zIndex: 999999,
+            padding: '1.5rem'
           }}
         >
-          <div style={{ position: 'relative', maxWidth: '450px', width: '100%' }} onClick={(e) => e.stopPropagation()}>
-            <button 
-              onClick={() => setSelectedProofImg(null)}
-              style={{
-                position: 'absolute',
-                top: '-40px', right: '0px',
-                background: 'none', border: 'none',
-                color: '#ffffff', fontSize: '1.5rem',
-                cursor: 'pointer', fontWeight: 'bold'
-              }}
-            >
-              ✕ Close
-            </button>
-            <img 
-              src={selectedProofImg} 
-              alt="Proof of payment verification file" 
-              style={{
-                width: '100%',
-                maxHeight: '75vh',
-                objectFit: 'contain',
-                borderRadius: '16px',
-                border: '3px solid rgba(234, 169, 116, 0.6)',
-                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.8)'
-              }}
-            />
+          <div 
+            style={{ 
+              position: 'relative', 
+              maxWidth: '420px', 
+              width: '100%',
+              backgroundColor: '#151c29',
+              borderRadius: '20px',
+              border: '2px solid rgba(234, 169, 116, 0.4)',
+              overflow: 'hidden',
+              boxShadow: '0 25px 60px rgba(0, 0, 0, 0.8)',
+              display: 'flex',
+              flexDirection: 'column'
+            }} 
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{
+              width: '100%',
+              backgroundColor: 'rgba(21, 28, 41, 0.9)',
+              padding: '12px 16px',
+              boxSizing: 'border-box',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              borderBottom: '1px solid rgba(255,255,255,0.08)'
+            }}>
+              <span style={{ color: '#cbd5e1', fontSize: '0.85rem', fontWeight: '700' }}>
+                {lang === 'en' ? 'Document Preview' : 'Pagsusuri ng Dokumento'}
+              </span>
+              <button 
+                onClick={() => setSelectedProofImg(null)}
+                style={{
+                  background: 'rgba(239, 68, 68, 0.1)',
+                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                  color: '#ef4444', 
+                  fontSize: '0.85rem',
+                  padding: '5px 12px',
+                  borderRadius: '6px',
+                  cursor: 'pointer', 
+                  fontWeight: '900',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={(e) => { e.target.style.backgroundColor = '#ef4444'; e.target.style.color = '#ffffff'; }}
+                onMouseLeave={(e) => { e.target.style.backgroundColor = 'rgba(239, 68, 68, 0.1)'; e.target.style.color = '#ef4444'; }}
+              >
+                ✕ Close
+              </button>
+            </div>
+
+            <div style={{ padding: '16px', display: 'flex', justifyContent: 'center', backgroundColor: '#0f172a' }}>
+              <img 
+                src={selectedProofImg} 
+                alt="Verification File Layout" 
+                style={{
+                  width: '100%',
+                  maxHeight: '55vh', 
+                  objectFit: 'contain',
+                  borderRadius: '12px',
+                  boxShadow: '0 8px 20px rgba(0,0,0,0.5)'
+                }}
+              />
+            </div>
           </div>
         </div>
       )}

@@ -16,6 +16,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('home');
   const [user, setUser] = useState(null);
   const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [isRecoveryMode, setIsRecoveryMode] = useState(false); // BAGONG STATE: Para sa Password Reset Trigger
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [selectedBikeForRent, setSelectedBikeForRent] = useState(null);
   const [activeRentals, setActiveRentals] = useState([]);
@@ -32,86 +33,54 @@ export default function App() {
       setUser(session?.user || null);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    // Nakikinig na kung PASSWORD_RECOVERY ang event mula sa email link
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user || null);
+
+      if (event === 'PASSWORD_RECOVERY') {
+        setIsRecoveryMode(true);
+        setAuthModalOpen(true); // Awtomatikong bubukas ang login modal ngunit nasa "Create New Password" view na ito
+      }
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
-  // RE-FETCH INFRASTRUCTURE FOR REAL-TIME RENTAL ASYNC DATA BOUNDS
-  const fetchRentals = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('mga_arkila')
-        .select('*');
-
-      if (error) throw error;
-      if (data) {
-        setActiveRentals(data);
-      }
-    } catch (err) {
-      console.error("System error mapping live data bounds from Supabase:", err);
-    }
-  };
-
-  // Patakbuhin ang fetch ng rentals kapag nag-load ang application
-  useEffect(() => {
-    fetchRentals();
-  }, []);
-
-  // Bridge controller endpoint for internal state tracking refresh signals
-  const handleStatusUpdate = () => {
-    fetchRentals();
-  };
-
-  // Secure checkout deployment guard validation
-  const handleRentClick = (bikeObj) => {
+  const handleRentClick = (bike) => {
     if (!user) {
       setAuthModalOpen(true);
       return;
     }
-    setSelectedBikeForRent(bikeObj);
-    paymentModalOpenOpenChange(true);
+    setSelectedBikeForRent(bike);
+    setPaymentModalOpen(true);
   };
 
-  const paymentModalOpenOpenChange = (isOpenState) => {
-    setPaymentModalOpen(isOpenState);
-    if (!isOpenState) {
-      fetchRentals(); // Awtomatikong mag-re-fetch pagkasara ng payment modal para mag-lock agad ang motor
-    }
+  const handleStatusUpdate = () => {
+    // Optional hook para sa real-time triggers
   };
 
   return (
-    <div 
-      className="app-container" 
-      style={{ 
-        backgroundColor: '#0f172a', 
-        minHeight: '100vh',
-        display: 'flex',          // 🌟 PINALITAN: Ginawang flex control para kontrolado ang salubong ng layout
-        flexDirection: 'column'
-      }}
-    >
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', backgroundColor: '#050811' }}>
       
-      {/* GLOBAL NAVBAR COMPONENT CONTROLLER NODE */}
-      {/* 🌟 DAGDAG WRAPPER CSS PARA PILITING MAPINDOT AT LUMUTANG SA PINAKA-TAAS */}
+      {/* GLOBAL TOP NAVIGATION CORE LAYER */}
       <div style={{ position: 'relative', zIndex: 99999 }}>
         <Navbar 
           activeTab={activeTab} 
           setActiveTab={setActiveTab} 
           user={user} 
           onAuthClick={() => setAuthModalOpen(true)} 
-          isAdmin={isAdmin}
-          lang="en"
+          isAdmin={isAdmin} 
+          lang="en" 
         />
       </div>
 
-      <main className="main-content" style={{ flex: 1, position: 'relative', zIndex: 1 }}>
-        {/* MUTUALLY EXCLUSIVE TABS */}
+      {/* DYNAMIC WORKSPACE ROUTER NODES */}
+      <main className="main-content" style={{ flex: 1, position: 'relative' }}>
+        
         {activeTab === 'home' && (
-          <Hero setActiveTab={setActiveTab} />
+          <Hero onRentNowClick={() => setActiveTab('bikes')} lang="en" />
         )}
-
+        
         {activeTab === 'bikes' && (
           <Bikes onRentClick={handleRentClick} lang="en" activeRentals={activeRentals} />
         )}
@@ -137,19 +106,27 @@ export default function App() {
       <div style={{ position: 'relative', zIndex: 100000 }}>
         <AuthModal 
           isOpen={authModalOpen} 
-          onClose={() => setAuthModalOpen(false)} 
+          onClose={() => {
+            setAuthModalOpen(false);
+            setIsRecoveryMode(false); // Linisin ang recovery state kapag sinara para sa susunod na normal login
+          }} 
           onLoginSuccess={() => setAuthModalOpen(false)}
           lang="en" 
+          isRecoveryModeInitial={isRecoveryMode} 
         />
 
         <PaymentModal
           isOpen={paymentModalOpen}
-          onClose={() => paymentModalOpenOpenChange(false)}
+          onClose={() => setPaymentModalOpen(false)}
           bikeData={selectedBikeForRent}
           user={user}
+          lang="en"
+          onSuccess={() => {
+            // Awtomatikong ire-redirect ang user sa Dashboard (My Bookings) kapag pumasok ang payment!
+            setActiveTab('dashboard');
+          }}
         />
       </div>
-
     </div>
   );
 }

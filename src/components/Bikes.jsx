@@ -1,12 +1,12 @@
 import React from 'react';
 import mainWebsiteBg from '../assets/BG.png';
 
-import nmaxImg from '../assets/nmaxv3.jpg';
-import aeroxImg from '../assets/aeroxv3.jpg';
-import clickImg from '../assets/click125.jpg';
-import beatImg from '../assets/beat.jpg';
-import fazzioImg from '../assets/fazzio.png'; 
-import mioImg from '../assets/mio i 125.jpg';  
+import nmaxImg from '../assets/Bikes/nmaxv3.jpg';
+import aeroxImg from '../assets/Bikes/aeroxv3.jpg';
+import clickImg from '../assets/Bikes/click125.jpg';
+import beatImg from '../assets/Bikes/beat.jpg';
+import fazzioImg from '../assets/Bikes/fazzio.png'; 
+import mioImg from '../assets/Bikes/mio i 125.jpg';  
 
 export default function Bikes({ onRentClick, activeRentals = [] }) {
   
@@ -134,14 +134,14 @@ export default function Bikes({ onRentClick, activeRentals = [] }) {
         }
       `}</style>
 
+      {/* 🧼 FIXED NAVBAR AREA: Ginawang transparent at tinanggal ang border para mag-blend sa background */}
       <div style={{
         position: 'absolute',
         top: 0,
         left: 0,
         width: '100%',
         height: '90px', 
-        backgroundColor: '#0f172a', 
-        borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+        backgroundColor: 'transparent',
         zIndex: 10
       }} />
 
@@ -177,7 +177,7 @@ export default function Bikes({ onRentClick, activeRentals = [] }) {
         }}>
           {akingMgaMotor.map((motor) => {
             
-            // 🌟 AUTOMATIC LOCK LOGIC KAPAG NAG-SEND NG PROOF
+            // 🔒 AUTOMATIC LOCK LOGIC KAPAG NAG-SEND NG PROOF
             const isRented = activeRentals.some(rental => {
               const rentalBikeName = (rental.pangalan_ng_motor || rental.name || '').toLowerCase().trim();
               const currentBikeName = motor.name.toLowerCase().trim();
@@ -188,7 +188,7 @@ export default function Bikes({ onRentClick, activeRentals = [] }) {
               
               const isSameBike = rentalBikeName === currentBikeName;
               
-              // 🎯 MAGIGING UNAVAILABLE KAPAG:
+              // 💡 MAGIGING UNAVAILABLE KAPAG:
               // 1. Naka-Approved na ni Admin (rentalStatus === 'approved')
               // 2. O KAYA Pending pa lang pero MERON NANG RESIBO (rentalStatus === 'pending' && mayResiboNa)
               const dapatIlock = rentalStatus === 'approved' || (rentalStatus === 'pending' && mayResiboNa);

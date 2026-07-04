@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 
-export default function PaymentModal({ isOpen, onClose, bikeData, user }) {
+export default function PaymentModal({ isOpen, onClose, bikeData, user, onSuccess, lang }) {
   // Navigation Steps Controller ('details' or 'payment')
   const [activeStep, setActiveStep] = useState('details');
 
@@ -33,61 +33,66 @@ export default function PaymentModal({ isOpen, onClose, bikeData, user }) {
     }
   }, [isOpen, bikeData]);
 
-  // 🌟 SAFETY GUARD 1: Pipigilan nito ang pag-crash ng app kung sakaling delay pumasok ang data ng motor
+  // SAFETY GUARD 1: Pipigilan nito ang pag-crash ng app kung sakaling delay pumasok ang data ng motor
   if (!isOpen) return null;
   if (!bikeData) return null;
 
-  // PRICING MATRIX HANDLER
+  // 💰 UPDATED PRICING MATRIX HANDLER
   const getStaticPriceByRateType = (type) => {
-    if (bikeData.rates) {
-      switch (type) {
-        case 'hrs24': return bikeData.rates.day || bikeData.rates.hrs24 || 600;
-        case 'hrs12': return bikeData.rates.hrs12 || 400;
-        case 'hrs3':  return bikeData.rates.hrs3 || 275;
-        case 'hr':    return bikeData.rates.hr || 70;
-        default:      return bikeData.rates.day || 600;
-      }
-    }
-
     const motorName = (bikeData.name || bikeData.pangalan || '').toLowerCase().trim();
+    
+    // NMAX V3 Pricing
     if (motorName.includes('nmax')) {
       switch (type) {
         case 'hrs24': return 800;
         case 'hrs12': return 600;
-        case 'hrs3':  return 400;
+        case 'hrs6':  return 400;
         case 'hr':    return 100;
         default:      return 800;
       }
     }
+    // AEROX V3 Pricing
     else if (motorName.includes('aerox')) {
       switch (type) {
         case 'hrs24': return 750;
         case 'hrs12': return 550;
-        case 'hrs3':  return 400;
+        case 'hrs6':  return 400;
         case 'hr':    return 100;
         default:      return 750;
       }
     }
+    // FAZZIO & CLICK 125 Pricing
     else if (motorName.includes('fazzio') || motorName.includes('click')) {
       switch (type) {
         case 'hrs24': return 650;
         case 'hrs12': return 450;
-        case 'hrs3':  return 300;
+        case 'hrs6':  return 300;
         case 'hr':    return 75;
         default:      return 650;
       }
     }
+    // MIO I 125 & BEAT Pricing
+    else if (motorName.includes('mio') || motorName.includes('beat')) {
+      switch (type) {
+        case 'hrs24': return 600;
+        case 'hrs12': return 400;
+        case 'hrs6':  return 275;
+        case 'hr':    return 70;
+        default:      return 600;
+      }
+    }
     
+    // Default fallback (Kung may bagong motor na hindi naka-lista sa itaas)
     switch (type) {
       case 'hrs24': return bikeData.price || 600;
       case 'hrs12': return 400;
-      case 'hrs3':  return 275;
+      case 'hrs6':  return 275;
       case 'hr':    return 70;
       default:      return 600;
     }
   };
 
-  // 🌟 SAFETY GUARD 2: Ligtas na Number conversions para walang NaN (Not-a-Number) error
+  // SAFETY GUARD 2: Ligtas na Number conversions para walang NaN (Not-a-Number) error
   const unitPrice = Number(getStaticPriceByRateType(rateType)) || 0;
   const safeDuration = Number(duration) || 1;
   const grandTotal = unitPrice * safeDuration;
@@ -110,7 +115,6 @@ export default function PaymentModal({ isOpen, onClose, bikeData, user }) {
     const fileExtension = fileObject.name.split('.').pop();
     const fileUniqueName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExtension}`;
     
-    // Gagamitin ang 'resibo' bucket na nakalagay sa lumang code mo
     const { data, error } = await supabase.storage
       .from('resibo')
       .upload(fileUniqueName, fileObject);
@@ -156,9 +160,9 @@ export default function PaymentModal({ isOpen, onClose, bikeData, user }) {
 
       const uriLabel = rateType === 'hrs24' ? '24 Hours Deal' : 
                        rateType === 'hrs12' ? '12 Hours Half-Day' : 
-                       rateType === 'hrs3'  ? '3 Hours Quick Deal' : 'Per Hour Rate';
+                       rateType === 'hrs6'  ? '6 Hours Quick Deal' : 'Per Hour Rate';
 
-      // 🌟 ITO ANG TUGMA SA IYONG DATABASE SCHEMA (mga_arkila)
+      // Swak sa Database Schema (mga_arkila)
       const bookingPayload = {
         user_id: activeUserId,
         kliyente_id: activeUserId,
@@ -178,11 +182,21 @@ export default function PaymentModal({ isOpen, onClose, bikeData, user }) {
       const { error } = await supabase.from('mga_arkila').insert([bookingPayload]);
       if (error) throw error;
 
-      alert('Thank you! Your booking request and proof of payment have been submitted successfully.');
-      onClose();
+      alert(lang === 'en' ? 'Thank you! Your booking request has been submitted successfully. Please complete your registration profile by uploading your valid Government ID / License now.' : 'Salamat! Ang iyong booking ay matagumpay na naipadala. Mangyaring kumpletuhin ang iyong veripikasyon sa pamamagitan ng pag-upload ng iyong Gov ID / Lisensya ngayon.');
+      
+      // SAFETY CHECKER PARA HINDI MAG-BLANK SCREEN!
+      if (typeof onSuccess === 'function') {
+        onSuccess();
+      } else {
+        console.warn("Wala o hindi function ang onSuccess prop.");
+      }
+      
+      if (typeof onClose === 'function') {
+        onClose();
+      }
+
     } catch (err) {
       console.error(err);
-      // Pinalawak ang error message para mas madaling ma-trace
       setErrorMessage(err.message || JSON.stringify(err) || 'An error occurred while processing your database transaction.');
     } finally {
       setIsSubmitting(false);
@@ -190,18 +204,8 @@ export default function PaymentModal({ isOpen, onClose, bikeData, user }) {
   };
 
   return (
-    <div style={{
-      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-      backgroundColor: 'rgba(15, 23, 42, 0.85)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '1rem'
-    }}>
-      <div style={{
-        backgroundColor: '#151c29', border: '2px solid rgba(234, 169, 116, 0.5)', borderRadius: '24px',
-        width: '100%', maxWidth: '460px', padding: '2rem 1.75rem', position: 'relative', boxSizing: 'border-box',
-        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 40px rgba(234, 169, 116, 0.1)',
-        maxHeight: '90vh',      
-        overflowY: 'auto'       
-      }}>
+    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(15, 23, 42, 0.85)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '1rem' }}>
+      <div style={{ backgroundColor: '#151c29', border: '2px solid rgba(234, 169, 116, 0.5)', borderRadius: '24px', width: '100%', maxWidth: '460px', padding: '2rem 1.75rem', position: 'relative', boxSizing: 'border-box', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 40px rgba(234, 169, 116, 0.1)', maxHeight: '90vh', overflowY: 'auto' }}>
         
         <button onClick={onClose} style={{ position: 'absolute', top: '20px', right: '20px', background: 'none', border: 'none', color: '#94a3b8', fontSize: '1.4rem', cursor: 'pointer' }}>✕</button>
 
@@ -210,7 +214,6 @@ export default function PaymentModal({ isOpen, onClose, bikeData, user }) {
           Unit Selected: <span style={{ color: '#eaa974', fontWeight: '700' }}>{bikeData.name || bikeData.pangalan}</span>
         </p>
 
-        {/* Dynamic Multi-Step Progress Tracker */}
         <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
           <div style={{ flex: 1, height: '4px', borderRadius: '2px', backgroundColor: '#eaa974' }}></div>
           <div style={{ flex: 1, height: '4px', borderRadius: '2px', backgroundColor: activeStep === 'payment' ? '#eaa974' : 'rgba(255,255,255,0.1)' }}></div>
@@ -222,15 +225,15 @@ export default function PaymentModal({ isOpen, onClose, bikeData, user }) {
           </div>
         )}
 
-        {/* STEP 1: RENTAL CONFIG DETAILS TAB PANELS */}
-        {activeStep === 'details' && (
+        {activeStep === 'details' ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               <label style={{ fontSize: '0.8rem', color: '#cbd5e1', fontWeight: '600' }}>Select Rate Option:</label>
               <select value={rateType} onChange={(e) => setRateType(e.target.value)} style={{ width: '100%', backgroundColor: 'rgba(30, 41, 59, 0.5)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '12px', padding: '12px', color: '#ffffff', fontSize: '0.9rem', outline: 'none' }}>
                 <option value="hrs24">24 Hours Deal (₱{getStaticPriceByRateType('hrs24')})</option>
                 <option value="hrs12">12 Hours Half-Day (₱{getStaticPriceByRateType('hrs12')})</option>
-                <option value="hrs3">3 Hours Quick Deal (₱{getStaticPriceByRateType('hrs3')})</option>
+                <option value="hrs6">6 Hours Quick Deal (₱{getStaticPriceByRateType('hrs6')})</option>
                 <option value="hr">Per Hour Rate (₱{getStaticPriceByRateType('hr')})</option>
               </select>
             </div>
@@ -244,11 +247,8 @@ export default function PaymentModal({ isOpen, onClose, bikeData, user }) {
                 value={duration === 0 ? '' : duration} 
                 onChange={(e) => {
                   const val = e.target.value;
-                  if (val === '') {
-                    setDuration(0);
-                  } else {
-                    setDuration(Math.max(0, parseInt(val) || 0));
-                  }
+                  if (val === '') setDuration(0);
+                  else setDuration(Math.max(0, parseInt(val) || 0));
                 }} 
                 style={{ backgroundColor: 'rgba(30, 41, 59, 0.5)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '12px', padding: '12px', color: '#ffffff', outline: 'none' }} 
               />
@@ -284,15 +284,11 @@ export default function PaymentModal({ isOpen, onClose, bikeData, user }) {
                   value={customAmount === 0 ? '' : customAmount} 
                   onChange={(e) => {
                     const val = e.target.value;
-                    if (val === '') {
-                      setCustomAmount(0);
-                    } else {
-                      setCustomAmount(Math.max(0, parseInt(val) || 0));
-                    }
+                    if (val === '') setCustomAmount(0);
+                    else setCustomAmount(Math.max(0, parseInt(val) || 0));
                   }} 
                   style={{ backgroundColor: 'rgba(30, 41, 59, 0.75)', border: '1px solid #eaa974', borderRadius: '12px', padding: '12px', color: '#ffffff', fontWeight: '700', outline: 'none' }} 
                 />
-                <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>Enter how much you want to transfer online right now to secure unit.</span>
               </div>
             )}
 
@@ -316,10 +312,7 @@ export default function PaymentModal({ isOpen, onClose, bikeData, user }) {
               Proceed to Payment →
             </button>
           </div>
-        )}
-
-        {/* STEP 2: QR GATEWAY SCREEN & TRANSACTION PROOF ATTACH */}
-        {activeStep === 'payment' && (
+        ) : (
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             
             {gateway !== 'Cash' ? (
@@ -332,7 +325,7 @@ export default function PaymentModal({ isOpen, onClose, bikeData, user }) {
                   width: '180px', height: '180px', 
                   backgroundColor: '#ffffff', borderRadius: '16px',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  padding: '0px', boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
+                  boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
                   overflow: 'hidden'
                 }}>
                   <img 
@@ -343,14 +336,8 @@ export default function PaymentModal({ isOpen, onClose, bikeData, user }) {
                 </div>
 
                 <p style={{ margin: '4px 0 0 0', fontSize: '0.78rem', color: '#94a3b8', textAlign: 'center' }}>
-                  Please send exactly <strong style={{ color: '#ffffff' }}>₱{amountToPayNow}</strong> right now.
+                  Please send exactly <strong style={{ color: '#ffffff' }}>₱{amountToPayNow}</strong>.
                 </p>
-                
-                {paymentType !== 'Full Payment' && (
-                  <p style={{ margin: '0', fontSize: '0.75rem', color: '#eaa974', textAlign: 'center', fontWeight: '600' }}>
-                    Note: Remaining ₱{balanceDueUponPickup} balance is payable upon pickup.
-                  </p>
-                )}
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%', marginTop: '10px', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '12px' }}>
                   <label style={{ fontSize: '0.8rem', color: '#cbd5e1', fontWeight: '700' }}>Attach Proof of Payment (Image File):</label>
@@ -366,19 +353,6 @@ export default function PaymentModal({ isOpen, onClose, bikeData, user }) {
                 </p>
               </div>
             )}
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '0.5rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '0.9rem', color: '#94a3b8', fontWeight: '600' }}>Due Right Now:</span>
-                <span style={{ fontSize: '1.6rem', color: '#eaa974', fontWeight: '900' }}>₱{amountToPayNow}</span>
-              </div>
-              {gateway !== 'Cash' && paymentType !== 'Full Payment' && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Remaining Balance Due:</span>
-                  <span style={{ fontSize: '0.95rem', color: '#ffffff', fontWeight: '700' }}>₱{balanceDueUponPickup}</span>
-                </div>
-              )}
-            </div>
 
             <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
               <button

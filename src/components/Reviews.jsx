@@ -27,7 +27,7 @@ export default function Reviews({ lang }) {
   }, []);
 
   const renderStars = (count) => {
-    return '⭐'.repeat(count);
+    return '⭐'.repeat(count || 5);
   };
 
   if (loading) {
@@ -55,7 +55,7 @@ export default function Reviews({ lang }) {
         backgroundColor: '#0f172a', 
         boxSizing: 'border-box',
         position: 'relative',
-        padding: '0 1rem 160px 1rem' // Binabaan ang bottom padding para balanse sa offset
+        padding: '0 1rem 160px 1rem' 
       }}
     >
       {/* POSITION BLOCK OFFSET: Pinabababa ang buong card container para lumitaw mula sa likod ng Navbar */}
@@ -76,7 +76,7 @@ export default function Reviews({ lang }) {
         marginBottom: '4rem'
       }}>
 
-        {/* Title Block - Ngayon ay siguradong lilitaw na dito */}
+        {/* Title Block */}
         <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
           <h2 style={{ fontSize: '2.5rem', fontWeight: '900', color: '#ffffff', margin: '0 0 0.5rem 0', letterSpacing: '1px' }}>
             {lang === 'en' ? 'CLIENT ' : 'MGA '}<span style={{ color: '#eaa974' }}>REVIEWS</span>
@@ -109,7 +109,7 @@ export default function Reviews({ lang }) {
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.75rem' }}>
                   <div>
-                    <strong style={{ color: '#eaa974', fontSize: '1.05rem', letterSpacing: '0.5px' }}>@{rev.pangalan_ng_kliyente}</strong>
+                    <strong style={{ color: '#eaa974', fontSize: '1.05rem', letterSpacing: '0.5px' }}>@{rev.pangalan_ng_kliyente || 'Client'}</strong>
                     <span style={{ fontSize: '0.8rem', color: '#94a3b8', marginLeft: '12px' }}>
                       {new Date(rev.created_at).toLocaleDateString()}
                     </span>
@@ -128,11 +128,11 @@ export default function Reviews({ lang }) {
                   borderRadius: '8px', 
                   marginBottom: '12px'
                 }}>
-                  Grid Unit: {rev.motor_na_narkila}
+                  Unit: {rev.motor_na_narkila || rev.motor_na_arkila || rev.pangalan_ng_motor || 'Motorcycle Unit'}
                 </div>
 
                 <p style={{ fontSize: '1rem', color: '#f1f5f9', lineHeight: '1.6', margin: 0, fontStyle: 'italic' }}>
-                  "{rev.mensahe_ng_review || rev.komento || rev.message}"
+                  "{rev.mensahe_ng_review || rev.komento || rev.message || rev.komento || 'No comment provided.'}"
                 </p>
               </div>
             ))}
