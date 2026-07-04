@@ -16,7 +16,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('home');
   const [user, setUser] = useState(null);
   const [authModalOpen, setAuthModalOpen] = useState(false);
-  const [isRecoveryMode, setIsRecoveryMode] = useState(false); // BAGONG STATE: Para sa Password Reset Trigger
+  const [isRecoveryMode, setIsRecoveryMode] = useState(false); 
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [selectedBikeForRent, setSelectedBikeForRent] = useState(null);
   const [activeRentals, setActiveRentals] = useState([]);
@@ -30,22 +30,42 @@ export default function App() {
   // Tiyakin ang User Authentication State mula sa Supabase
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user || null);
+      setUser(session?.user ?? null);
     });
 
-    // Nakikinig na kung PASSWORD_RECOVERY ang event mula sa email link
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      setUser(session?.user || null);
-
-      if (event === 'PASSWORD_RECOVERY') {
-        setIsRecoveryMode(true);
-        setAuthModalOpen(true); // Awtomatikong bubukas ang login modal ngunit nasa "Create New Password" view na ito
-      }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
+  // Sync active rentals data
+  useEffect(() => {
+    if (!user) {
+      setActiveRentals([]);
+      return;
+    }
+
+    async function fetchMyRentals() {
+      try {
+        const { data, error } = await supabase
+          .from('mga_arkila')
+          .select('*')
+          .eq('user_id', user.id);
+
+        if (!error && data) {
+          setActiveRentals(data);
+        }
+      } catch (err) {
+        console.error("Rentals sync failure:", err);
+      }
+    }
+
+    fetchMyRentals();
+  }, [user]);
+
+  // Handler kapag pinindot ang Rent Now sa mismong catalog ng motor
   const handleRentClick = (bike) => {
     if (!user) {
       setAuthModalOpen(true);
@@ -55,32 +75,41 @@ export default function App() {
     setPaymentModalOpen(true);
   };
 
+  // Helper/Wrapper para sa Hero button navigation
+  const handleHeroRentNowNavigation = () => {
+    setActiveTab('bikes');
+    // Awtomatikong mag-scroll up sa catalog section para kitang-kita ng user
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const handleStatusUpdate = () => {
-    // Optional hook para sa real-time triggers
+    // Admin refresh trigger callback placeholder
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', backgroundColor: '#050811' }}>
+    <div style={{ backgroundColor: '#050811', minHeight: '100vh', color: '#ffffff', fontFamily: 'system-ui, sans-serif' }}>
       
-      {/* GLOBAL TOP NAVIGATION CORE LAYER */}
-      <div style={{ position: 'relative', zIndex: 99999 }}>
-        <Navbar 
-          activeTab={activeTab} 
-          setActiveTab={setActiveTab} 
-          user={user} 
-          onAuthClick={() => setAuthModalOpen(true)} 
-          isAdmin={isAdmin} 
-          lang="en" 
-        />
-      </div>
+      {/* GLOBAL APPLICATION NAVIGATION HEADER */}
+      <Navbar 
+        activeTab={activeTab} 
+        setActiveTab={setActiveTab} 
+        user={user} 
+        onAuthClick={() => setAuthModalOpen(true)} 
+        isAdmin={isAdmin}
+      />
 
-      {/* DYNAMIC WORKSPACE ROUTER NODES */}
-      <main className="main-content" style={{ flex: 1, position: 'relative' }}>
+      {/* CORE ROUTER ENGINE MAIN RENDERING NODES */}
+      <main style={{ width: '100%', minHeight: 'calc(100vh - 90px)', boxSizing: 'border-box' }}>
         
+        {/* HOMEPAGE LANDING ARCHITECTURE */}
         {activeTab === 'home' && (
-          <Hero onRentNowClick={() => setActiveTab('bikes')} lang="en" />
+          <Hero 
+            setActiveTab={handleHeroRentNowNavigation} 
+            lang="en" 
+          />
         )}
-        
+
+        {/* PREMIUM FLEET MOTORCYCLE CATALOG */}
         {activeTab === 'bikes' && (
           <Bikes onRentClick={handleRentClick} lang="en" activeRentals={activeRentals} />
         )}
@@ -108,7 +137,7 @@ export default function App() {
           isOpen={authModalOpen} 
           onClose={() => {
             setAuthModalOpen(false);
-            setIsRecoveryMode(false); // Linisin ang recovery state kapag sinara para sa susunod na normal login
+            setIsRecoveryMode(false); 
           }} 
           onLoginSuccess={() => setAuthModalOpen(false)}
           lang="en" 
@@ -122,7 +151,8 @@ export default function App() {
           user={user}
           lang="en"
           onSuccess={() => {
-            // Awtomatikong ire-redirect ang user sa Dashboard (My Bookings) kapag pumasok ang payment!
+            // Awtomatikong ire-redirect ang user sa Dashboard matapos magbayad para makita ang resibo
+            setPaymentModalOpen(false);
             setActiveTab('dashboard');
           }}
         />

@@ -12,8 +12,8 @@ import viganImg from '../assets/Places/Vigan.jpg';
 
 // 🏍️ MOTOR ASSETS IMPORT (Bikes folder)
 import nmaxImg from '../assets/Bikes/nmaxv3.jpg';
-import aeroxImg from '../assets/Bikes/aeroxv3.jpg'; // 💻 FIXED: Tinanggal ang "="
-import clickImg from '../assets/Bikes/click125.jpg'; // 💻 FIXED: Tinanggal ang "="
+import aeroxImg from '../assets/Bikes/aeroxv3.jpg';
+import clickImg from '../assets/Bikes/click125.jpg';
 import beatImg from '../assets/Bikes/beat.jpg';
 import fazzioImg from '../assets/Bikes/fazzio.png';
 import mioiImg from '../assets/Bikes/mio i 125.jpg'; 
@@ -53,7 +53,7 @@ function BikeImage({ src, alt }) {
   );
 }
 
-export default function Hero({ setActiveTab }) {
+export default function Hero({ lang, setActiveTab }) {
   const textColorMuted = '#94a3b8';
   const textColorFull = '#ffffff';
   const futuristicGold = '#eaa974';
@@ -136,16 +136,15 @@ export default function Hero({ setActiveTab }) {
     if (diff < -50) { prevSlide(); setTouchStart(null); }
   };
 
-  const handleNavigationToBikes = (e) => {
+  // ⚡ ROUTE TAB SWITCH AT SMOOTH SCROLL BACKUP
+  const handleNavigationClick = (e) => {
     if (e) e.preventDefault();
-    setActiveTab('bikes');
-    setTimeout(() => {
-      const bikesSection = document.getElementById('bikes');
-      if (bikesSection) bikesSection.scrollIntoView({ behavior: 'smooth' });
-    }, 100);
+    if (typeof setActiveTab === 'function') {
+      setActiveTab('bikes'); 
+    }
   };
 
-  // 🏆 DYNAMIC SNEAK PEEK ARCHITECTURE (Top 3 Motors Ordered From Highest to Lowest)
+  // 🏆 DYNAMIC SNEAK PEEK ARCHITECTURE
   const allFleetModels = [
     { key: 'nmax', name: 'Yamaha NMAX V3', img: nmaxImg, tagline: 'Comfort meets max performance.', badge: 'MOST POPULAR CHOICE' },
     { key: 'aerox', name: 'Yamaha Aerox V3', img: aeroxImg, tagline: 'Aerodynamic race styling DNA.', badge: 'TOP PERFORMANCE RIDE' },
@@ -155,7 +154,6 @@ export default function Hero({ setActiveTab }) {
     { key: 'beat', name: 'Honda Beat', img: beatImg, tagline: 'Agile & Efficient city rider.', badge: 'BUDGET FRIENDLY CHOICE' }
   ];
 
-  // Ina-arrange nito ang mga motor mula sa may pinakamalaking total booked hanggang sa pinakamababa, tsaka kukuha ng Top 3
   const topThreeFleet = [...allFleetModels]
     .sort((a, b) => (bikeStats[b.key] || 0) - (bikeStats[a.key] || 0))
     .slice(0, 3);
@@ -173,13 +171,14 @@ export default function Hero({ setActiveTab }) {
       <style>{`
         .hero-dashboard-grid {
           display: grid;
-          grid-template-columns: 1.5fr 1fr;
+          grid-template-columns: 1.6fr 1fr; /* 💻 MAS PI-NALAPAD ANG KALIWANG BOX CONFIG */
           gap: 2rem;
-          max-width: 1200px;
+          max-width: 1240px;
           width: 100%;
           margin-top: 110px;
           margin-bottom: 3rem;
           zIndex: 20;
+          align-items: stretch; /* 💻 PINAPANTAY ANG TAAS AT IBABA NG DALAWA */
           animation: fadeLoadIn 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
         
@@ -194,23 +193,18 @@ export default function Hero({ setActiveTab }) {
           border-color: rgba(234, 169, 116, 0.4) !important;
           box-shadow: 0 15px 30px rgba(0, 0, 0, 0.4);
         }
-        .fleet-live-card:hover .action-cta-sub {
-          background: linear-gradient(135deg, #eaa974 0%, #b38b4d 100%) !important;
-          color: #050811 !important;
-          box-shadow: 0 0 15px rgba(234, 169, 116, 0.5);
-        }
 
         .side-fleet-stack { display: flex; flex-direction: column; gap: 16px; }
         @keyframes fadeLoadIn { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
         @media (max-width: 1024px) { .hero-dashboard-grid { grid-template-columns: 1fr; margin-top: 100px; gap: 1.5rem; } }
       `}</style>
 
-      {/* 🧼 FIXED NAVBAR AREA: Walang border o solid colors para mag-blend sa background background niyo */}
+      {/* 🧼 BUFFER SPACE */}
       <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '90px', backgroundColor: 'transparent', zIndex: 10 }} />
 
       <div className="hero-dashboard-grid">
         
-        {/* 🪟 LEFT PANEL */}
+        {/* 🪟 LEFT DOMINANT COORDINATES PANEL */}
         <div className="cyber-panel-left" style={{
           backgroundColor: 'rgba(10, 15, 30, 0.8)', backdropFilter: 'blur(24px)',
           border: `1px solid rgba(234, 169, 116, 0.2)`, borderRadius: '28px',
@@ -225,7 +219,8 @@ export default function Hero({ setActiveTab }) {
             </p>
           </div>
 
-          <div onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} style={{ position: 'relative', width: '100%', height: '410px', backgroundColor: '#090d16', borderRadius: '20px', overflow: 'hidden', border: '1px solid rgba(255, 255, 255, 0.05)', boxShadow: '0 20px 40px rgba(0,0,0,0.5)', cursor: 'grab' }}>
+          {/* 💻 PINALAKI ANG HEIGHT NG SLIDER PARA MAS MAGANDA ANG ASPECT RATIO AT PANTAY SA KANAN */}
+          <div onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} style={{ position: 'relative', width: '100%', flex: 1, minHeight: '460px', backgroundColor: '#090d16', borderRadius: '20px', overflow: 'hidden', border: '1px solid rgba(255, 255, 255, 0.05)', boxShadow: '0 20px 40px rgba(0,0,0,0.5)', cursor: 'grab' }}>
             <div style={{ display: 'flex', width: '100%', height: '100%', transform: `translateX(-${currentSlide * 100}%)`, transition: 'transform 0.8s cubic-bezier(0.16, 1, 0.3, 1)' }}>
               {DESTINATIONS.map((dest) => (
                 <div key={dest.id} style={{ flexShrink: 0, width: '100%', height: '100%', position: 'relative' }}>
@@ -246,7 +241,7 @@ export default function Hero({ setActiveTab }) {
           </div>
         </div>
 
-        {/* ⚡ RIGHT SIDE PANEL */}
+        {/* ⚡ RIGHT SIDE FLEET STACK */}
         <div className="cyber-panel-right" style={{
           backgroundColor: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(20px)',
           border: '1px solid rgba(255, 255, 255, 0.06)', borderRadius: '28px',
@@ -265,22 +260,19 @@ export default function Hero({ setActiveTab }) {
             </p>
           </div>
 
-          <div className="side-fleet-stack">
-            
+          <div className="side-fleet-stack" style={{ flex: 1, justifyContent: 'center' }}>
             {topThreeFleet.map((bike, index) => (
               <div 
                 key={bike.key}
                 className="fleet-live-card" 
-                onClick={handleNavigationToBikes}
+                onClick={handleNavigationClick}
                 style={{ 
                   backgroundColor: 'rgba(5, 8, 17, 0.6)', border: '1px solid rgba(255, 255, 255, 0.05)', 
                   borderRadius: '18px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px'
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                  
                   <BikeImage src={bike.img} alt={bike.name} />
-
                   <div style={{ flex: 1 }}>
                     <div style={{ 
                       backgroundColor: 'rgba(234, 169, 116, 0.1)', color: futuristicGold, 
@@ -303,24 +295,39 @@ export default function Hero({ setActiveTab }) {
                   }}>
                     <span style={{ color: '#94a3b8', fontSize: '0.75rem', fontWeight: '600' }}>Total Booked:</span>
                     <span style={{ color: futuristicGold, fontSize: '0.82rem', fontWeight: '800', letterSpacing: '0.5px' }}>
-                      {isLoadingStats ? 'LOADING...' : `${bikeStats[bike.key]} Times`}
+                      {isLoadingStats ? '...' : `${bikeStats[bike.key] || 0} Times`}
                     </span>
                   </div>
                   
-                  <div className="action-cta-sub" style={{
+                  <div style={{
                     border: '1px solid rgba(234, 169, 116, 0.4)', color: futuristicGold, padding: '10px 14px', 
                     borderRadius: '10px', fontSize: '0.72rem', fontWeight: '900', letterSpacing: '1px',
-                    transition: 'all 0.3s ease', whiteSpace: 'nowrap'
+                    whiteSpace: 'nowrap'
                   }}>
                     RENT NOW
                   </div>
                 </div>
               </div>
             ))}
-
           </div>
 
-          <div style={{ textTransform: 'none', textAlign: 'center', fontSize: '0.72rem', color: futuristicGold, paddingTop: '12px', marginTop: 'auto', fontWeight: '600', letterSpacing: '0.5px' }}>
+          {/* 🎯 MAIN BOTTOM RENT NOW CTA BUTTON */}
+          <button 
+            onClick={handleNavigationClick}
+            style={{
+              backgroundColor: futuristicGold, color: '#0f172a', padding: '14px 24px',
+              border: 'none', borderRadius: '12px', fontSize: '0.92rem', fontWeight: '950',
+              cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '1px',
+              boxShadow: '0 10px 20px rgba(234, 169, 116, 0.15)', transition: 'all 0.3s ease',
+              width: '100%', display: 'block', marginTop: 'auto'
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 15px 25px rgba(234, 169, 116, 0.35)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 10px 20px rgba(234, 169, 116, 0.15)'; }}
+          >
+            {lang === 'en' ? 'Rent Now' : 'Arkila Na'}
+          </button>
+
+          <div style={{ textTransform: 'none', textAlign: 'center', fontSize: '0.72rem', color: futuristicGold, paddingTop: '4px', fontWeight: '600', letterSpacing: '0.5px' }}>
             ✓ Verified Cyber-Fleet Analytics
           </div>
 
