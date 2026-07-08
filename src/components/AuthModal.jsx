@@ -11,8 +11,9 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, lang, isRec
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState(''); 
   const [fullName, setFullName] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [phoneNumber, setPhoneNumber] = useState('');
 
+  const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -31,19 +32,24 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, lang, isRec
 
   if (!isOpen) return null;
 
+  const formatPhNumber = (num) => {
+    let cleaned = num.replace(/\D/g, ''); 
+    if (cleaned.startsWith('09') && cleaned.length === 11) {
+      return '+63' + cleaned.substring(1);
+    } else if (cleaned.startsWith('639') && cleaned.length === 12) {
+      return '+' + cleaned;
+    }
+    return null; 
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
 
     try {
       if (isUpdatePassword) {
-        if (password !== confirmPassword) {
-          throw new Error(lang === 'en' ? 'Passwords do not match. Please double check.' : 'Hindi magkatugma ang password. Mangyaring pakisuri ulit.');
-        }
-
-        if (password.length < 6) {
-          throw new Error(lang === 'en' ? 'Password must be at least 6 characters long.' : 'Ang password ay dapat hindi bababa sa 6 na karakter.');
-        }
+        if (password !== confirmPassword) throw new Error(lang === 'en' ? 'Passwords do not match.' : 'Hindi magkatugma ang password.');
+        if (password.length < 6) throw new Error(lang === 'en' ? 'Password must be at least 6 characters.' : 'Ang password ay dapat hindi bababa sa 6 na karakter.');
 
         const { error: updateError } = await supabase.auth.updateUser({ password: password.trim() });
         if (updateError) throw updateError;
@@ -56,33 +62,50 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, lang, isRec
         onClose();
 
       } else if (isForgotPassword) {
-        if (!email.trim()) throw new Error(lang === 'en' ? 'Please enter your email address.' : 'Mangyaring ilagay ang iyong email address.');
-        
+        if (!email.trim()) throw new Error(lang === 'en' ? 'Please enter your email.' : 'Mangyaring ilagay ang iyong email.');
         const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: `${window.location.origin}` });
         if (resetError) throw resetError;
 
-        alert(lang === 'en' ? '📬 A password reset link has been sent! Please check your email inbox.' : '📬 Naipadala na ang password reset link! Pakitingnan ang iyong email inbox.');
+        alert(lang === 'en' ? '📬 Reset link sent! Check your email.' : '📬 Naipadala na ang reset link! Pakitingnan ang email.');
         setIsForgotPassword(false);
 
       } else if (isSignUp) {
         const cleanUsername = username.trim().toLowerCase().replace(/\s+/g, '');
-        if (cleanUsername.length < 3) throw new Error(lang === 'en' ? 'Username must be at least 3 characters long.' : 'Ang username ay dapat hindi bababa sa 3 karakter.');
+        if (cleanUsername.length < 3) throw new Error(lang === 'en' ? 'Username too short.' : 'Masyadong maikli ang username.');
+
+        const formattedPhone = formatPhNumber(phoneNumber);
+        if (!formattedPhone) throw new Error(lang === 'en' ? 'Invalid Philippine Number (e.g. 09123456789)' : 'Mali ang format ng numero. (Hal. 09123456789)');
 
         const { data: existingUser } = await supabase.from('mga_kliyente').select('username').eq('username', cleanUsername).maybeSingle();
-        if (existingUser) throw new Error(lang === 'en' ? 'This username is already taken. Please choose another one.' : 'Ang username na ito ay nakuha na. Pumili ng iba.');
+        if (existingUser) throw new Error(lang === 'en' ? 'Username taken.' : 'Nakuha na ang username na ito.');
 
-        const { data: authData, error: authError } = await supabase.auth.signUp({ email: email.trim(), password: password, options: { data: { full_name: fullName.trim(), username: cleanUsername } } });
+        const { data: authData, error: authError } = await supabase.auth.signUp({ 
+          email: email.trim(), 
+          password: password, 
+          options: { data: { full_name: fullName.trim(), username: cleanUsername } } 
+        });
         if (authError) throw authError;
 
         if (authData?.user) {
-          const { error: profileError } = await supabase.from('mga_kliyente').insert([{ id: authData.user.id, buong_pangalan: fullName.trim(), username: cleanUsername, email_address: email.trim(), created_at: new Date().toISOString() }]);
-          if (profileError) throw profileError;
+          const { error: profileError } = await supabase.from('mga_kliyente').insert([{ 
+            id: authData.user.id, 
+            buong_pangalan: fullName.trim(), 
+            username: cleanUsername, 
+            email_address: email.trim(),
+            numero_ng_telepono: formattedPhone, 
+            created_at: new Date().toISOString() 
+          }]);
           
-          const { data: profileData } = await supabase.from('mga_kliyente').select('*').eq('id', authData.user.id).single();
-          alert(lang === 'en' ? '✅ Registration successful!' : '✅ Matagumpay ang iyong pag-rehistro!');
+          if (profileError) throw new Error(`Database Error: ${profileError.message}`);
+          
+          const { data: profileData } = await supabase.from('mga_kliyente').select('*').eq('id', authData.user.id).maybeSingle();
+          
+          alert(lang === 'en' ? '✅ Registration successful!' : '✅ Matagumpay ang pag-rehistro!');
+          
           if (onLoginSuccess) onLoginSuccess(authData.user, profileData);
           onClose();
         }
+
       } else {
         let finalEmail = emailOrUsername.trim();
         const isEmailInput = finalEmail.includes('@');
@@ -98,8 +121,7 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, lang, isRec
         if (loginError) throw loginError;
 
         if (loginData?.user) {
-          const { data: profileData, error: profileErr } = await supabase.from('mga_kliyente').select('*').eq('id', loginData.user.id).maybeSingle();
-          if (profileErr) console.error("Error retrieving custom client row profile:", profileErr);
+          const { data: profileData } = await supabase.from('mga_kliyente').select('*').eq('id', loginData.user.id).maybeSingle();
           if (onLoginSuccess) onLoginSuccess(loginData.user, profileData || null);
           onClose();
         }
@@ -124,19 +146,38 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, lang, isRec
     </svg>
   );
 
+  // --- MAS MALINIS NA TEXT VARIABLES ---
+  let headerText = '';
+  if (isUpdatePassword) {
+    headerText = lang === 'en' ? 'Create New Password' : 'Gumawa ng Bagong Password';
+  } else if (isForgotPassword) {
+    headerText = lang === 'en' ? 'Reset Password' : 'I-reset ang Password';
+  } else if (isSignUp) {
+    headerText = lang === 'en' ? 'Create Account' : 'Gumawa ng Account';
+  } else {
+    headerText = lang === 'en' ? 'Welcome Back' : 'Mag-log In';
+  }
+
+  let buttonText = '';
+  if (loading) {
+    buttonText = '...';
+  } else if (isUpdatePassword) {
+    buttonText = lang === 'en' ? 'Save New Password' : 'I-save ang Bagong Password';
+  } else if (isForgotPassword) {
+    buttonText = lang === 'en' ? 'Send Reset Link' : 'Ipadala ang Reset Link';
+  } else if (isSignUp) {
+    buttonText = lang === 'en' ? 'Register Account' : 'Mag-rehistro';
+  } else {
+    buttonText = lang === 'en' ? 'Login Securely' : 'Ligtas na Pumasok';
+  }
+
   return (
     <div className="auth-modal-overlay" onClick={onClose}>
       <div className="auth-modal-content" onClick={(e) => e.stopPropagation()}>
         
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
           <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '800', color: '#ffffff' }}>
-            {isUpdatePassword 
-              ? (lang === 'en' ? 'Create New Password' : 'Gumawa ng Bagong Password')
-              : isForgotPassword 
-                ? (lang === 'en' ? 'Reset Password' : 'I-reset ang Password')
-                : isSignUp 
-                  ? (lang === 'en' ? 'Create Account' : 'Gumawa ng Account') 
-                  : (lang === 'en' ? 'Welcome Back' : 'Mag-log In')}
+            {headerText}
           </h2>
           {!isUpdatePassword && (
             <button 
@@ -149,10 +190,6 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, lang, isRec
         <form onSubmit={handleSubmit}>
           {isUpdatePassword ? (
             <div style={{ marginBottom: '15px' }}>
-              <p style={{ color: '#cbd5e1', fontSize: '0.9rem', marginTop: 0, marginBottom: '1rem' }}>
-                {lang === 'en' ? 'Type and confirm your secure new password below.' : 'I-type at kumpirmahin ang iyong ligtas na bagong password sa ibaba.'}
-              </p>
-              
               <div className="password-input-wrapper">
                 <input 
                   type={showPassword ? "text" : "password"} 
@@ -192,6 +229,15 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, lang, isRec
               <input type="text" placeholder={lang === 'en' ? 'Full Name' : 'Buong Pangalan'} value={fullName} onChange={(e) => setFullName(e.target.value)} required />
               <input type="text" placeholder={lang === 'en' ? 'Username (e.g., anjhon21)' : 'Username (Hal. anjhon21)'} value={username} onChange={(e) => setUsername(e.target.value)} required />
               <input type="email" placeholder="Email Address" value={email} onChange={(e) => setEmail(e.target.value)} required />
+              
+              <input 
+                type="text" 
+                placeholder={lang === 'en' ? 'Phone Number (09...)' : 'Numero ng Telepono (09...)'} 
+                value={phoneNumber} 
+                onChange={(e) => setPhoneNumber(e.target.value)} 
+                maxLength={13}
+                required 
+              />
             </>
           ) : (
             <input type="text" placeholder={lang === 'en' ? 'Email or Username' : 'Email o Username'} value={emailOrUsername} onChange={(e) => setEmailOrUsername(e.target.value)} required />
@@ -214,11 +260,7 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, lang, isRec
               
               {!isSignUp && (
                 <div style={{ textAlign: 'right', marginTop: '-12px', marginBottom: '15px' }}>
-                  <button 
-                    type="button" 
-                    onClick={() => { setIsForgotPassword(true); setIsSignUp(false); }}
-                    style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '0.8rem', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
-                  >
+                  <button type="button" onClick={() => { setIsForgotPassword(true); setIsSignUp(false); }} style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '0.8rem', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}>
                     {lang === 'en' ? 'Forgot Password?' : 'Nakalimutan ang Password?'}
                   </button>
                 </div>
@@ -227,15 +269,7 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, lang, isRec
           )}
 
           <button type="submit" className="auth-submit-btn" disabled={loading}>
-            {loading 
-              ? '...' 
-              : isUpdatePassword 
-                ? (lang === 'en' ? 'Save New Password' : 'I-save ang Bagong Password')
-                : isForgotPassword
-                  ? (lang === 'en' ? 'Send Reset Link' : 'Ipadala ang Reset Link')
-                  : isSignUp 
-                    ? (lang === 'en' ? 'Register & Login' : 'Mag-rehistro at Pumasok') 
-                    : (lang === 'en' ? 'Login Securely' : 'Ligtas na Pumasok')}
+            {buttonText}
           </button>
         </form>
 

@@ -14,6 +14,8 @@ import './App.css';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('home');
+  // 🌟 ETO ANG FIX: Idinagdag natin ang 'lang' variable para hindi na mag-crash!
+  const [lang, setLang] = useState('en'); 
   const [user, setUser] = useState(null);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [isRecoveryMode, setIsRecoveryMode] = useState(false); 
@@ -105,33 +107,33 @@ export default function App() {
         {activeTab === 'home' && (
           <Hero 
             setActiveTab={handleHeroRentNowNavigation} 
-            lang="en" 
+            lang={lang} 
           />
         )}
 
         {/* PREMIUM FLEET MOTORCYCLE CATALOG */}
         {activeTab === 'bikes' && (
-          <Bikes onRentClick={handleRentClick} lang="en" activeRentals={activeRentals} />
+          <Bikes onRentClick={handleRentClick} lang={lang} activeRentals={activeRentals} />
         )}
 
-        {activeTab === 'reviews' && <Reviews lang="en" />}
+        {activeTab === 'reviews' && <Reviews lang={lang} />}
 
-        {activeTab === 'about' && <About lang="en" />}
+        {activeTab === 'about' && <About lang={lang} />}
 
-        {activeTab === 'contact' && <Contact lang="en" />}
+        {activeTab === 'contact' && <Contact lang={lang} />}
 
         {/* USER PROFILE MANAGEMENT PORTAL */}
         {activeTab === 'dashboard' && user && !isAdmin && (
-          <Dashboard user={user} lang="en" activeTab={activeTab} />
+          <Dashboard user={user} lang={lang} activeTab={activeTab} />
         )}
 
         {/* PRIVILEGED FLEET COMMAND CORE */}
         {activeTab === 'admin' && user && isAdmin && (
-          <AdminDashboard onStatusUpdate={handleStatusUpdate} lang="en" />
+          <AdminDashboard onStatusUpdate={handleStatusUpdate} lang={lang} />
         )}
       </main>
 
-      {/* MODALS ENTRY NODES (Laging nakataas para sa screen prompt overlays) */}
+      {/* MODALS ENTRY NODES */}
       <div style={{ position: 'relative', zIndex: 100000 }}>
         <AuthModal 
           isOpen={authModalOpen} 
@@ -140,7 +142,7 @@ export default function App() {
             setIsRecoveryMode(false); 
           }} 
           onLoginSuccess={() => setAuthModalOpen(false)}
-          lang="en" 
+          lang={lang} 
           isRecoveryModeInitial={isRecoveryMode} 
         />
 
@@ -149,9 +151,8 @@ export default function App() {
           onClose={() => setPaymentModalOpen(false)}
           bikeData={selectedBikeForRent}
           user={user}
-          lang="en"
+          lang={lang}
           onSuccess={() => {
-            // Awtomatikong ire-redirect ang user sa Dashboard matapos magbayad para makita ang resibo
             setPaymentModalOpen(false);
             setActiveTab('dashboard');
           }}

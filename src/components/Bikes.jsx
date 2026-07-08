@@ -49,7 +49,7 @@ export default function Bikes({ onRentClick, activeRentals = [] }) {
     },
     { 
       id: 7, 
-      name: 'Honda BeAT FI', 
+      name: 'Honda Beat FI', 
       desc: 'Compact agile engineering excellent for heavy metropolitan traffic navigation.',
       img: beatImg, 
       rates: { day: 600 }
@@ -134,7 +134,7 @@ export default function Bikes({ onRentClick, activeRentals = [] }) {
         }
       `}</style>
 
-      {/* 🧼 FIXED NAVBAR AREA: Ginawang transparent at tinanggal ang border para mag-blend sa background */}
+      {/* FIXED NAVBAR AREA: Ginawang transparent at tinanggal ang border para mag-blend sa background */}
       <div style={{
         position: 'absolute',
         top: 0,
@@ -177,21 +177,26 @@ export default function Bikes({ onRentClick, activeRentals = [] }) {
         }}>
           {akingMgaMotor.map((motor) => {
             
-            // 🔒 AUTOMATIC LOCK LOGIC KAPAG NAG-SEND NG PROOF
+            // AUTOMATIC LOCK LOGIC KAPAG NAG-SEND NG PROOF O NA-PICK UP NA
             const isRented = activeRentals.some(rental => {
               const rentalBikeName = (rental.pangalan_ng_motor || rental.name || '').toLowerCase().trim();
               const currentBikeName = motor.name.toLowerCase().trim();
-              const rentalStatus = (rental.status || rental.status_ng_renta || '').toLowerCase().trim();
+              const rentalStatus = (rental.status || rental.status_ng_renta || rental.estado || '').toLowerCase().trim();
               
               // Tinitignan kung may na-upload nang screenshot/file ng resibo
               const mayResiboNa = !!(rental.resibo_url || rental.proof_of_payment || rental.proof);
               
               const isSameBike = rentalBikeName === currentBikeName;
               
-              // 💡 MAGIGING UNAVAILABLE KAPAG:
-              // 1. Naka-Approved na ni Admin (rentalStatus === 'approved')
-              // 2. O KAYA Pending pa lang pero MERON NANG RESIBO (rentalStatus === 'pending' && mayResiboNa)
-              const dapatIlock = rentalStatus === 'approved' || (rentalStatus === 'pending' && mayResiboNa);
+              // 1. Siguraduhing hindi pa tapos ang transaction (Babalik sa Available pag Completed/Cancelled)
+              const isOngoing = !['completed', 'ended', 'cancelled', 'rejected'].includes(rentalStatus);
+
+              // 2. MAGIGING UNAVAILABLE KAPAG:
+              // - Nai-mark na ni admin as "Picked Up", "Approved", o "Active"
+              const isLockedStatus = ['picked up', 'approved', 'active', 'rented'].includes(rentalStatus);
+
+              // 3. I-lock ang bike kung Ongoing ang renta AT (may nag-downpayment O nai-mark na as Picked Up/Approved)
+              const dapatIlock = isOngoing && (mayResiboNa || isLockedStatus);
 
               return isSameBike && dapatIlock;
             });
@@ -209,12 +214,13 @@ export default function Bikes({ onRentClick, activeRentals = [] }) {
                   }}
                 />
 
+                {/* 🚫 TINANGGAL ANG ALERT AT NILAKIHAN ANG TEXT AT BADGE NG KONTI 🚫 */}
                 {isRented && (
                   <div style={{
                     position: 'absolute', top: '15px', right: '15px',
                     backgroundColor: '#ef4444', color: '#ffffff',
-                    padding: '10px 24px', borderRadius: '12px',
-                    fontSize: '0.65rem', fontWeight: '800', textTransform: 'uppercase', zIndex: 4
+                    padding: '12px 26px', borderRadius: '12px',
+                    fontSize: '0.85rem', fontWeight: '900', textTransform: 'uppercase', zIndex: 4
                   }}>
                     🚫 Unavailable/Rented
                   </div>
