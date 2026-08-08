@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import mainWebsiteBg from '../assets/BG.png';
-import PaymentModalExtend from './PaymentModalExtend'; 
+import PaymentModalExtend from './PaymentModalExtend';
+import Toast from './Toast';
+import ConfirmDialog from './ConfirmDialog';
 
 // 🏍️ IMPORT MGA PICTURES NG MOTOR
 import nmaxImg from '../assets/Bikes/nmaxv3.jpg';
@@ -9,16 +11,23 @@ import aeroxImg from '../assets/Bikes/aeroxv3.jpg';
 import clickImg from '../assets/Bikes/click125.jpg';
 import beatImg from '../assets/Bikes/beat.jpg';
 import fazzioImg from '../assets/Bikes/fazzio.png';
-import mioiImg from '../assets/Bikes/mio i 125.jpg'; 
+import mioiImg from '../assets/Bikes/mio i 125.jpg';
+
+const cardRowClass = "flex justify-between items-start text-[0.85rem] gap-2.5";
+const cardLabelClass = "text-brand-muted font-medium whitespace-nowrap";
+const cardValueClass = "text-slate-50 font-semibold text-right break-words";
+const glassInputClass = "w-full px-3.5 py-2.5 bg-[#0e1424] text-white border border-brand-primary/20 rounded-lg text-[0.9rem] outline-none box-border focus:border-brand-primary/50 transition-colors";
 
 export default function Dashboard({ user, lang, activeTab }) {
+  const [toast, setToast] = useState(null);
+  const [confirmState, setConfirmState] = useState(null);
   const [myBookings, setMyBookings] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [currentTab, setCurrentTab] = useState('active'); 
+  const [currentTab, setCurrentTab] = useState('active');
   const [uploadingId, setUploadingId] = useState(null);
-  
+
   const [selectedBookingForReview, setSelectedBookingForReview] = useState(null);
-  const [selectedBookingForExtend, setSelectedBookingForExtend] = useState(null); 
+  const [selectedBookingForExtend, setSelectedBookingForExtend] = useState(null);
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState('');
   const [submittingReview, setSubmittingReview] = useState(false);
@@ -35,27 +44,19 @@ export default function Dashboard({ user, lang, activeTab }) {
   });
 
   const calculateEndTime = (booking) => {
-    if (!booking) return new Date(); 
-    let startDate;
-    if (booking?.tunay_na_oras_ng_kuha) {
-      startDate = new Date(booking.tunay_na_oras_ng_kuha);
-    } else if (booking?.petsa_ng_pagkuha) {
-      const timeString = booking?.oras_ng_pagkuha || '00:00';
-      const combinedDateTime = `${booking.petsa_ng_pagkuha} ${timeString}`;
-      startDate = new Date(combinedDateTime);
-      if (isNaN(startDate.getTime())) startDate = new Date(booking?.created_at || new Date());
-    } else {
-      startDate = new Date(booking?.created_at || new Date());
-    }
+    if (!booking) return new Date();
+    const startDate = booking?.picked_up_at
+      ? new Date(booking.picked_up_at)
+      : new Date(booking?.created_at || new Date());
 
-    const packageStr = String(booking?.uri_ng_arkila || '').toLowerCase();
-    let baseHours = 24; 
+    const packageStr = String(booking?.rental_package || '').toLowerCase();
+    let baseHours = 24;
     if (packageStr.includes('per hour') || packageStr.includes('hourly')) baseHours = 1;
     else if (packageStr.includes('12')) baseHours = 12;
     else if (packageStr.includes('6')) baseHours = 6;
     else if (packageStr.includes('24') || packageStr.includes('1 day') || packageStr.includes('magdamagan')) baseHours = 24;
 
-    const multiplier = Number(booking?.tagal_ng_arkila) || 1;
+    const multiplier = Number(booking?.rental_units) || 1;
     return new Date(startDate.getTime() + baseHours * multiplier * 60 * 60 * 1000);
   };
 
@@ -70,9 +71,9 @@ export default function Dashboard({ user, lang, activeTab }) {
       if (!activeId) { setLoading(false); return; }
 
       const { data, error } = await supabase
-        .from('mga_arkila')
+        .from('bookings')
         .select('*')
-        .eq('user_id', activeId) 
+        .eq('client_id', activeId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -94,12 +95,12 @@ export default function Dashboard({ user, lang, activeTab }) {
       if (!activeId) return;
 
       const { data, error } = await supabase
-        .from('mga_review')
-        .select('arkila_id')
-        .eq('user_id', activeId);
+        .from('reviews')
+        .select('booking_id')
+        .eq('client_id', activeId);
 
-      if (error) return; 
-      if (data) setReviewedBookingIds(data.map(r => r.arkila_id));
+      if (error) return;
+      if (data) setReviewedBookingIds(data.map(r => r.booking_id));
     } catch (err) {
       console.error(err);
     }
@@ -133,15 +134,15 @@ export default function Dashboard({ user, lang, activeTab }) {
         .getPublicUrl(filePath);
 
       const { error: updateError } = await supabase
-        .from('mga_arkila')
-        .update({ id_gobyerno_url: publicUrlData.publicUrl })
+        .from('bookings')
+        .update({ government_id_url: publicUrlData.publicUrl })
         .eq('id', bookingId);
 
       if (updateError) throw updateError;
-      alert(lang === 'en' ? "Government ID uploaded successfully!" : "Matagumpay na na-upload ang iyong ID!");
+      setToast({ type: 'success', message: lang === 'en' ? "Government ID uploaded successfully!" : "Matagumpay na na-upload ang iyong ID!" });
       fetchMyBookings();
     } catch (err) {
-      alert("Upload failed.");
+      setToast({ type: 'error', message: lang === 'en' ? "Upload failed." : "Hindi na-upload." });
       console.error(err);
     } finally {
       setUploadingId(null);
@@ -155,28 +156,43 @@ export default function Dashboard({ user, lang, activeTab }) {
     setSubmittingReview(true);
     try {
       const { data: sessionData } = await supabase.auth.getSession();
-      const activeUserId = user?.id || sessionData?.session?.user?.id || selectedBookingForReview?.user_id || "guest-user";
+      const activeUserId = user?.id || sessionData?.session?.user?.id || selectedBookingForReview?.client_id || "guest-user";
       const activeName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Client';
 
+      // SELF-HEALING GUARD: kung may account pero walang client profile row
+      // (hal. na-interrupt ang signup dati), gawa muna ng minimal profile
+      // bago mag-insert ng review, para hindi ma-block ng foreign key.
+      const { data: existingClient } = await supabase.from('clients').select('id').eq('id', activeUserId).maybeSingle();
+      if (!existingClient) {
+        await supabase.from('clients').insert([{
+          id: activeUserId,
+          full_name: activeName,
+          username: user?.email?.split('@')[0] || `user_${String(activeUserId).slice(0, 8)}`,
+          email: user?.email || '',
+          created_at: new Date().toISOString()
+        }]);
+      }
+
       const { error } = await supabase
-        .from('mga_review')
+        .from('reviews')
         .insert([{
-          arkila_id: selectedBookingForReview?.id,
-          user_id: activeUserId, 
-          pangalan_ng_kliyente: activeName,
+          booking_id: selectedBookingForReview?.id,
+          client_id: activeUserId,
+          client_name: activeName,
           rating: parseInt(rating),
-          motor_na_narkila: selectedBookingForReview?.pangalan_ng_motor || 'Motorcycle Unit',
-          komento: comment
+          motorcycle_name: selectedBookingForReview?.motorcycle_name || 'Motorcycle Unit',
+          comment: comment
         }]);
 
       if (error) throw error;
-      alert(lang === 'en' ? "Thank you for your feedback!" : "Salamat sa iyong review at komento!");
+      setToast({ type: 'success', message: lang === 'en' ? "Thank you for your feedback!" : "Salamat sa iyong review at komento!" });
       setReviewedBookingIds(prev => [...prev, selectedBookingForReview?.id]);
       setSelectedBookingForReview(null);
       setComment('');
       fetchReviewedBookings();
     } catch (err) {
       console.error(err);
+      setToast({ type: 'error', message: lang === 'en' ? "Failed to submit review." : "Hindi naipadala ang review." });
     } finally {
       setSubmittingReview(false);
     }
@@ -188,23 +204,29 @@ export default function Dashboard({ user, lang, activeTab }) {
     localStorage.setItem(`hidden_bookings_${user?.id || 'guest'}`, JSON.stringify(updated));
   };
 
-  const handleCancelBooking = async (bookingId) => {
-    const confirmCancel = window.confirm(lang === 'en' ? "Are you sure you want to cancel this booking?" : "Sigurado ka bang gusto mong i-cancel ang booking na ito?");
-    if (!confirmCancel) return;
+  const handleCancelBooking = (bookingId) => {
+    setConfirmState({
+      message: lang === 'en' ? "Are you sure you want to cancel this booking?" : "Sigurado ka bang gusto mong i-cancel ang booking na ito?",
+      danger: true,
+      confirmLabel: lang === 'en' ? 'Cancel Booking' : 'I-cancel',
+      onConfirm: () => executeCancelBooking(bookingId)
+    });
+  };
 
+  const executeCancelBooking = async (bookingId) => {
     try {
       const { error } = await supabase
-        .from('mga_arkila')
+        .from('bookings')
         .update({ status: 'Cancelled' })
         .eq('id', bookingId);
 
       if (error) throw error;
 
-      alert(lang === 'en' ? "Booking cancelled successfully." : "Matagumpay na na-cancel ang booking.");
-      fetchMyBookings(); 
+      setToast({ type: 'success', message: lang === 'en' ? "Booking cancelled successfully." : "Matagumpay na na-cancel ang booking." });
+      fetchMyBookings();
     } catch (err) {
       console.error("Error cancelling booking:", err);
-      alert("Failed to cancel booking.");
+      setToast({ type: 'error', message: lang === 'en' ? "Failed to cancel booking." : "Hindi na-cancel ang booking." });
     }
   };
 
@@ -217,28 +239,19 @@ export default function Dashboard({ user, lang, activeTab }) {
     if (name.includes('beat')) return beatImg;
     if (name.includes('fazzio')) return fazzioImg;
     if (name.includes('mio')) return mioiImg;
-    return null; 
+    return null;
   };
 
   const visibleBookings = (myBookings || []).filter((b) => {
-    if (!b) return false; 
+    if (!b) return false;
     if (hiddenHistoryIds.includes(b?.id)) return false;
-    
+
     const status = b?.status || 'Pending';
-    
+
     if (currentTab === 'active') return status === 'Pending' || status === 'Approved' || status === 'Picked Up';
-    if (currentTab === 'history') return status === 'Completed' || status === 'Rejected' || status === 'Cancelled'; 
+    if (currentTab === 'history') return status === 'Completed' || status === 'Rejected' || status === 'Cancelled';
     return true;
   });
-
-  const styles = {
-    fontStack: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-    glassInput: {
-      padding: '10px 14px', background: '#0e1424', color: '#fff', 
-      border: '1px solid rgba(234, 169, 116, 0.2)', borderRadius: '8px', 
-      width: '100%', boxSizing: 'border-box', fontSize: '0.9rem', outline: 'none'
-    }
-  };
 
   const formatSystemDate = (date) => {
     return date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) + ` | ` + date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -246,134 +259,66 @@ export default function Dashboard({ user, lang, activeTab }) {
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', backgroundColor: '#050811', color: '#eaa974', fontFamily: styles.fontStack }}>
-        <div style={{ textAlign: 'center', letterSpacing: '1px', fontWeight: 'bold', fontSize: '0.9rem' }}>LOADING ENVIRONMENT...</div>
+      <div className="flex justify-center items-center h-screen bg-[#050811] text-brand-primary">
+        <div className="text-center tracking-wide font-bold text-sm">LOADING ENVIRONMENT...</div>
       </div>
     );
   }
 
-  const lacksGovId = visibleBookings.some(b => b && !b?.id_gobyerno_url);
+  const lacksGovId = visibleBookings.some(b => b && !b?.government_id_url);
 
   return (
-    <div style={{ minHeight: '100vh', width: '100%', fontFamily: styles.fontStack, backgroundImage: `url(${mainWebsiteBg})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundColor: '#050811', boxSizing: 'border-box', padding: '140px 2rem 4rem 2rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-      
-      <style>{`
-        @keyframes urgentPulse {
-          0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5); border-color: #ef4444; }
-          50% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); border-color: #f87171; }
-          100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); border-color: #ef4444; }
-        }
-        @keyframes bannerPulse {
-          0% { background-color: rgba(239, 68, 68, 0.15); }
-          50% { background-color: rgba(239, 68, 68, 0.3); }
-          100% { background-color: rgba(239, 68, 68, 0.15); }
-        }
-        .booking-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-          gap: 1.5rem;
-          width: 100%;
-        }
-        .booking-card {
-          background: rgba(10, 17, 32, 0.75);
-          backdrop-filter: blur(16px);
-          border: 1px solid rgba(255, 255, 255, 0.05);
-          border-radius: 16px;
-          padding: 1.5rem;
-          display: flex;
-          flex-direction: column;
-          gap: 0.8rem;
-          transition: transform 0.2s ease, box-shadow 0.2s ease;
-          box-shadow: 0 20px 40px -15px rgba(0,0,0,0.7);
-        }
-        .booking-card:hover {
-          transform: translateY(-3px);
-          box-shadow: 0 10px 25px rgba(0,0,0,0.4);
-          border-color: rgba(234, 169, 116, 0.3);
-        }
-        .card-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-          padding-bottom: 1rem;
-          margin-bottom: 0.5rem;
-        }
-        .card-row {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          font-size: 0.85rem;
-          gap: 10px;
-        }
-        .card-label {
-          color: #94a3b8;
-          font-weight: 500;
-          white-space: nowrap;
-        }
-        .card-value {
-          color: #f8fafc;
-          font-weight: 600;
-          text-align: right;
-          word-wrap: break-word;
-        }
-        .card-actions {
-          margin-top: auto;
-          padding-top: 1rem;
-          border-top: 1px solid rgba(255, 255, 255, 0.05);
-          display: flex;
-          flex-direction: column;
-          gap: 0.75rem;
-        }
-      `}</style>
+    <div
+      className="min-h-screen w-full box-border flex flex-col items-center px-8 pt-[140px] pb-16 bg-cover bg-center bg-[#050811]"
+      style={{ backgroundImage: `url(${mainWebsiteBg})` }}
+    >
 
-      <h1 style={{ margin: '0 0 4px 0', color: '#fff', fontSize: '2.2rem', fontWeight: '900', letterSpacing: '-0.5px' }}>
+      <span className="eyebrow block mb-2">
+        {lang === 'en' ? 'Your Account' : 'Iyong Account'}
+      </span>
+      <h1 className="font-display mb-1 text-white text-[2.2rem] font-bold tracking-[-0.5px]">
         {lang === 'en' ? 'Client Dashboard' : 'Dashboard ng Arkila'}
       </h1>
-      <p style={{ margin: '0 0 2rem 0', color: '#94a3b8', fontSize: '0.9rem', fontWeight: '500' }}>
+      <p className="mb-8 text-brand-muted text-sm font-medium">
         {formatSystemDate(currentTime)}
       </p>
 
       {currentTab === 'active' && lacksGovId && visibleBookings.length > 0 && (
-        <div style={{ width: '100%', maxWidth: '1100px', padding: '14px 20px', borderRadius: '14px', border: '1px solid #ef4444', animation: 'bannerPulse 2.5s infinite', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px', boxSizing: 'border-box' }}>
-          <span style={{ fontSize: '1.4rem' }}>⚠️</span>
-          <div style={{ flex: 1 }}>
-            <h5 style={{ margin: '0 0 2px 0', color: '#f87171', fontSize: '0.95rem', fontWeight: '800' }}>Verification Action Required!</h5>
-            <p style={{ margin: 0, color: '#cbd5e1', fontSize: '0.82rem', lineHeight: '1.4' }}>
+        <div className="w-full max-w-[1100px] px-5 py-3.5 rounded-2xl border border-red-500 flex items-center gap-3 mb-5 box-border animate-[bannerPulse_2.5s_infinite]">
+          <span className="text-2xl">⚠️</span>
+          <div className="flex-1">
+            <h5 className="mb-0.5 text-red-400 text-[0.95rem] font-extrabold">Verification Action Required!</h5>
+            <p className="m-0 text-slate-300 text-[0.82rem] leading-snug">
               {lang === 'en' ? 'To complete your rental process, please upload a clear photo of your valid Government ID or Driver License.' : 'Upang makumpleto ang pag-arkila, mangyaring mag-upload ng malinaw na larawan ng iyong valid Government ID o Driver License.'}
             </p>
           </div>
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: '8px', background: 'rgba(15, 23, 42, 0.6)', border: '1px solid rgba(255,255,255,0.05)', padding: '6px', borderRadius: '14px', marginBottom: '1.5rem', width: '100%', maxWidth: '1100px', boxSizing: 'border-box' }}>
-        <button onClick={() => setCurrentTab('active')} style={{ flex: 1, padding: '10px', borderRadius: '10px', border: 'none', background: currentTab === 'active' ? '#eaa974' : 'transparent', color: currentTab === 'active' ? '#0f172a' : '#94a3b8', fontWeight: '700', fontSize: '0.85rem', cursor: 'pointer', transition: 'all 0.2s' }}>
+      <div className="flex gap-2 bg-slate-900/60 border border-white/5 p-1.5 rounded-2xl mb-6 w-full max-w-[1100px] box-border">
+        <button onClick={() => setCurrentTab('active')} className={`flex-1 py-2.5 rounded-[10px] font-bold text-[0.85rem] transition-all duration-200 cursor-pointer ${currentTab === 'active' ? 'bg-brand-primary text-brand-bg' : 'bg-transparent text-brand-muted hover:text-white'}`}>
           {lang === 'en' ? 'Active Rentals' : 'Mga Aktibong Renta'}
         </button>
-        <button onClick={() => setCurrentTab('history')} style={{ flex: 1, padding: '10px', borderRadius: '10px', border: 'none', background: currentTab === 'history' ? '#eaa974' : 'transparent', color: currentTab === 'history' ? '#0f172a' : '#94a3b8', fontWeight: '700', fontSize: '0.85rem', cursor: 'pointer', transition: 'all 0.2s' }}>
+        <button onClick={() => setCurrentTab('history')} className={`flex-1 py-2.5 rounded-[10px] font-bold text-[0.85rem] transition-all duration-200 cursor-pointer ${currentTab === 'history' ? 'bg-brand-primary text-brand-bg' : 'bg-transparent text-brand-muted hover:text-white'}`}>
           {lang === 'en' ? 'Past History' : 'Kasaysayan'}
         </button>
       </div>
 
-      <div style={{ width: '100%', maxWidth: '1100px' }}>
+      <div className="w-full max-w-[1100px]">
         {visibleBookings.length === 0 ? (
-          <div style={{ padding: '50px', textAlign: 'center', color: '#64748b', fontSize: '0.9rem', fontStyle: 'italic', background: 'rgba(10, 17, 32, 0.75)', border: '1px solid rgba(255, 255, 255, 0.05)', borderRadius: '20px' }}>
+          <div className="glass-card p-12 text-center text-slate-500 text-sm italic">
             No current lifecycle records found.
           </div>
         ) : (
-          <div className="booking-grid">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-6 w-full">
             {visibleBookings.map((booking) => {
               if (!booking) return null;
 
               const status = booking?.status || 'Pending';
-              const isExtended = booking?.is_extended === true || booking?.orihinal_na_tagal != null;
+              const isExtended = booking?.is_extended === true || booking?.original_rental_units != null;
               const isAlreadyReviewed = reviewedBookingIds.includes(booking?.id);
-              
-              let pickupDateObj = booking?.tunay_na_oras_ng_kuha ? new Date(booking.tunay_na_oras_ng_kuha) : null;
-              if (!pickupDateObj && booking?.petsa_ng_pagkuha) {
-                const timeString = booking?.oras_ng_pagkuha || '00:00';
-                pickupDateObj = new Date(`${booking.petsa_ng_pagkuha} ${timeString}`);
-              }
+
+              const pickupDateObj = booking?.picked_up_at ? new Date(booking.picked_up_at) : null;
 
               const endDeadlineObj = calculateEndTime(booking);
               const isExpired = status === 'Picked Up' && currentTime > endDeadlineObj;
@@ -383,32 +328,32 @@ export default function Dashboard({ user, lang, activeTab }) {
               let overdueHours = 0;
               if (isExpired) {
                 const diffMs = currentTime.getTime() - endDeadlineObj.getTime();
-                overdueHours = Math.ceil(diffMs / (1000 * 60 * 60)); 
-                
+                overdueHours = Math.ceil(diffMs / (1000 * 60 * 60));
+
                 let hourlyRate = 100;
-                const bName = String(booking?.pangalan_ng_motor || '').toLowerCase();
+                const bName = String(booking?.motorcycle_name || '').toLowerCase();
                 if (bName.includes('fazzio') || bName.includes('click')) hourlyRate = 75;
                 else if (bName.includes('mio') || bName.includes('beat')) hourlyRate = 70;
-                
+
                 penaltyFee = overdueHours * hourlyRate;
               }
 
-              const displayPickup = pickupDateObj && !isNaN(pickupDateObj.getTime()) ? pickupDateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : (booking?.petsa_ng_pagkuha || 'Pending Set');
+              const displayPickup = pickupDateObj && !isNaN(pickupDateObj.getTime()) ? pickupDateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Pending Set';
               const displayReturn = endDeadlineObj && !isNaN(endDeadlineObj.getTime()) ? endDeadlineObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Pending Set';
-              
-              let rawMode = String(booking?.paraan_ng_pagbabayad || booking?.mode_of_payment || '').toLowerCase();
-              let baseMode = 'Cash'; 
+
+              let rawMode = String(booking?.payment_method || '').toLowerCase();
+              let baseMode = 'Cash';
 
               if (rawMode.includes('maya')) {
                 baseMode = 'Maya';
-              } else if (rawMode.includes('gcash') || booking?.resibo_url) {
+              } else if (rawMode.includes('gcash') || booking?.receipt_url) {
                 baseMode = 'GCash';
               }
 
-              const totalAmt = Number(booking?.kabuuang_bayad || booking?.halaga || booking?.total_price || 0);
+              const totalAmt = Number(booking?.total_amount || 0);
               const cashPaid = Number(booking?.cash_paid || 0);
 
-              let balance = Number(booking?.balance_due || booking?.balance || booking?.balanse || 0);
+              let balance = Number(booking?.balance_due || 0);
               if (baseMode === 'Cash' && cashPaid < totalAmt && balance === 0) {
                 balance = totalAmt - cashPaid;
               }
@@ -422,7 +367,7 @@ export default function Dashboard({ user, lang, activeTab }) {
               let displayModeName = baseMode;
               if (isSplit) displayModeName = `${baseMode}/Cash`;
 
-              let paymentModeColor = baseMode === 'GCash' ? '#3b82f6' : baseMode === 'Maya' ? '#10b981' : '#f59e0b';
+              const paymentModeClass = baseMode === 'GCash' ? 'text-blue-500' : baseMode === 'Maya' ? 'text-emerald-500' : 'text-amber-500';
 
               let dpLabel = lang === 'en' ? `Downpayment (${baseMode}):` : `Paunang Bayad (${baseMode}):`;
               if (!isSplit && downpayment === totalAmt) {
@@ -431,9 +376,9 @@ export default function Dashboard({ user, lang, activeTab }) {
 
               const refId = String(booking?.id || 'xxxx').substring(0, 8).toUpperCase();
 
-              // EXTENSION DETAILS 
-              let extRawMode = String(booking?.paraan_ng_pagbayad_extension || '').toLowerCase();
-              let extBaseMode = 'Cash'; 
+              // EXTENSION DETAILS
+              let extRawMode = String(booking?.extension_payment_method || '').toLowerCase();
+              let extBaseMode = 'Cash';
 
               if (extRawMode.includes('maya')) {
                 extBaseMode = 'Maya';
@@ -443,114 +388,123 @@ export default function Dashboard({ user, lang, activeTab }) {
                 extBaseMode = 'Cash';
               }
 
-              let extPaymentColor = extBaseMode === 'GCash' ? '#3b82f6' : extBaseMode === 'Maya' ? '#10b981' : '#f59e0b';
+              const extPaymentClass = extBaseMode === 'GCash' ? 'text-blue-500' : extBaseMode === 'Maya' ? 'text-emerald-500' : 'text-amber-500';
 
-              const extTotalAmt = Number(booking?.halaga_ng_extension || 0);
-              const extPaidAmt = Number(booking?.bayad_sa_extension || 0);
-              const extBalance = extTotalAmt > 0 ? extTotalAmt - extPaidAmt : 0; 
+              const extTotalAmt = Number(booking?.extension_amount || 0);
+              const extPaidAmt = Number(booking?.extension_paid || 0);
+              const extBalance = extTotalAmt > 0 ? extTotalAmt - extPaidAmt : 0;
 
               return (
-                <div key={booking?.id || Math.random()} className="booking-card">
-                  
-                  <div className="card-header">
-                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                      <div style={{ width: '55px', height: '55px', borderRadius: '10px', backgroundColor: 'rgba(255,255,255,0.03)', overflow: 'hidden', flexShrink: 0, display: 'flex', justifyContent: 'center', alignItems: 'center', border: '1px solid rgba(255,255,255,0.1)' }}>
-                        {getBikeImage(booking?.pangalan_ng_motor) ? (
-                          <img src={getBikeImage(booking?.pangalan_ng_motor)} alt={booking?.pangalan_ng_motor} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                <div
+                  key={booking?.id || Math.random()}
+                  className="glass-card glass-card-hover p-6 flex flex-col gap-3"
+                >
+
+                  <div className="flex justify-between items-start border-b border-white/5 pb-4 mb-1">
+                    <div className="flex gap-3 items-center">
+                      <div className="w-[55px] h-[55px] rounded-[10px] bg-white/[0.03] overflow-hidden shrink-0 flex justify-center items-center border border-white/10">
+                        {getBikeImage(booking?.motorcycle_name) ? (
+                          <img src={getBikeImage(booking?.motorcycle_name)} alt={booking?.motorcycle_name} className="w-full h-full object-cover" />
                         ) : (
-                          <span style={{ fontSize: '1.5rem' }}>🏍️</span>
+                          <span className="text-2xl">🏍️</span>
                         )}
                       </div>
-                      
+
                       <div>
-                        <h3 style={{ color: '#fff', margin: '0 0 4px 0', fontSize: '1.15rem', fontWeight: '800' }}>{booking?.pangalan_ng_motor || 'Unknown Unit'}</h3>
-                        <div style={{ color: '#64748b', fontSize: '0.75rem', fontFamily: 'monospace' }}>Ref ID: #{refId}</div>
+                        <h3 className="font-display text-white mb-1 text-[1.15rem] font-extrabold">{booking?.motorcycle_name || 'Unknown Unit'}</h3>
+                        <div className="text-slate-500 text-xs font-mono">Ref ID: #{refId}</div>
                       </div>
                     </div>
-                    
+
                     <div>
-                      <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '0.7rem', fontWeight: '800', textTransform: 'uppercase', whiteSpace: 'nowrap', display: 'inline-block', background: status === 'Completed' ? 'rgba(16,185,129,0.1)' : status === 'Rejected' || status === 'Cancelled' ? 'rgba(239,68,68,0.1)' : 'rgba(234,169,116,0.1)', color: status === 'Completed' ? '#10b981' : status === 'Rejected' || status === 'Cancelled' ? '#f87171' : '#eaa974' }}>
+                      <span className={`px-2.5 py-1 rounded-full text-[0.7rem] font-extrabold uppercase whitespace-nowrap inline-block border ${
+                        status === 'Completed'
+                          ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                          : status === 'Rejected' || status === 'Cancelled'
+                          ? 'bg-red-500/15 text-red-400 border-red-500/30'
+                          : 'bg-brand-primary/15 text-brand-primary border-brand-primary/30'
+                      }`}>
                         {status} {isExtended && "➕ EXT"}
                       </span>
                     </div>
                   </div>
 
-                  <div className="card-row">
-                    <span className="card-label">Contract Type:</span>
-                    <span className="card-value">{booking?.uri_ng_arkila || 'Standard Contract'}</span>
+                  <div className={cardRowClass}>
+                    <span className={cardLabelClass}>Contract Type:</span>
+                    <span className={cardValueClass}>{booking?.rental_package || 'Standard Contract'}</span>
                   </div>
 
-                  <div className="card-row">
-                    <span className="card-label">Timeline:</span>
-                    <span className="card-value">
+                  <div className={cardRowClass}>
+                    <span className={cardLabelClass}>Timeline:</span>
+                    <span className={cardValueClass}>
                       {status === 'Completed' ? (
                         <>
-                          <div style={{ marginBottom: '4px' }}>{displayPickup} → {displayReturn}</div>
-                          <div style={{ color: '#10b981', fontSize: '0.75rem', fontWeight: 'bold' }}>✓ Returned / Completed</div>
+                          <div className="mb-1">{displayPickup} → {displayReturn}</div>
+                          <div className="text-emerald-500 text-xs font-bold">✓ Returned / Completed</div>
                         </>
                       ) : status === 'Cancelled' || status === 'Rejected' ? (
-                        <span style={{ fontStyle: 'italic', color: '#ef4444' }}>Booking {status}</span>
+                        <span className="italic text-red-500">Booking {status}</span>
                       ) : (
                         <>
-                          <div style={{ marginBottom: '4px' }}>{displayPickup} → {displayReturn}</div>
-                          {isExpired && <span style={{ color: '#ef4444', fontWeight: 'bold' }}>⚠️ [OVERDUE]</span>}
+                          <div className="mb-1">{displayPickup} → {displayReturn}</div>
+                          {isExpired && <span className="text-red-500 font-bold">⚠️ [OVERDUE]</span>}
                         </>
                       )}
                     </span>
                   </div>
 
                   {isExtended && (
-                    <div style={{ background: 'rgba(234, 169, 116, 0.1)', padding: '6px 10px', borderRadius: '8px', border: '1px solid rgba(234, 169, 116, 0.2)', fontSize: '0.75rem', marginTop: '4px', marginBottom: '8px' }}>
-                      <span style={{ color: '#eaa974', fontWeight: 'bold' }}>🕒 Extension Record Active</span>
-                      <div style={{ color: '#fff', display: 'flex', justifyContent: 'space-between', marginTop: '2px' }}>
-                        <span>Original Duration:</span> <span>{booking.orihinal_na_tagal || 'N/A'} Units</span>
+                    <div className="bg-brand-primary/10 px-2.5 py-1.5 rounded-lg border border-brand-primary/20 text-xs mt-1 mb-2">
+                      <span className="text-brand-primary font-bold">🕒 Extension Record Active</span>
+                      <div className="text-white flex justify-between mt-0.5">
+                        <span>Original Duration:</span> <span>{booking.original_rental_units || 'N/A'} Units</span>
                       </div>
                     </div>
                   )}
-                  
-                  <div className="card-row">
-                    <span className="card-label">{lang === 'en' ? 'Mode of payment:' : 'Paraan ng pagbabayad:'}</span>
-                    <span className="card-value" style={{ color: paymentModeColor, fontWeight: 'bold' }}>
+
+                  <div className={cardRowClass}>
+                    <span className={cardLabelClass}>{lang === 'en' ? 'Mode of payment:' : 'Paraan ng pagbabayad:'}</span>
+                    <span className={`${cardValueClass} ${paymentModeClass} font-bold`}>
                       {displayModeName}
                     </span>
                   </div>
 
-                  <div className="card-row">
-                    <span className="card-label">{lang === 'en' ? 'Total Amount:' : 'Kabuuang Halaga:'}</span>
-                    <span className="card-value" style={{ color: '#eaa974', fontWeight: '700', fontSize: '1rem' }}>₱{totalAmt}</span>
+                  <div className={cardRowClass}>
+                    <span className={cardLabelClass}>{lang === 'en' ? 'Total Amount:' : 'Kabuuang Halaga:'}</span>
+                    <span className={`${cardValueClass} text-brand-primary font-bold text-base`}>₱{totalAmt}</span>
                   </div>
 
                   {downpayment > 0 && (
-                    <div className="card-row">
-                      <span className="card-label">{dpLabel}</span>
-                      <span className="card-value" style={{ color: paymentModeColor }}>
+                    <div className={cardRowClass}>
+                      <span className={cardLabelClass}>{dpLabel}</span>
+                      <span className={`${cardValueClass} ${paymentModeClass}`}>
                         ₱{downpayment}
                       </span>
                     </div>
                   )}
 
                   {cashPaid > 0 && (
-                    <div className="card-row">
-                      <span className="card-label">{lang === 'en' ? 'Cash Paid:' : 'Bayad na Cash:'}</span>
-                      <span className="card-value" style={{ color: '#10b981' }}>
+                    <div className={cardRowClass}>
+                      <span className={cardLabelClass}>{lang === 'en' ? 'Cash Paid:' : 'Bayad na Cash:'}</span>
+                      <span className={`${cardValueClass} text-emerald-500`}>
                         ₱{cashPaid}
                       </span>
                     </div>
                   )}
 
-                  <div className="card-row" style={{ backgroundColor: hasBalance ? 'rgba(239, 68, 68, 0.05)' : 'transparent', padding: hasBalance ? '4px 8px' : '0', borderRadius: '6px', marginTop: '4px' }}>
-                    <span className="card-label" style={{ color: hasBalance ? '#f87171' : '#94a3b8' }}>
+                  <div className={`${cardRowClass} mt-1 ${hasBalance ? 'bg-red-500/5 px-2 py-1 rounded-md' : ''}`}>
+                    <span className={`${cardLabelClass} ${hasBalance ? 'text-red-400' : ''}`}>
                       {lang === 'en' ? 'Balance:' : 'Balanse:'}
                     </span>
-                    <span className="card-value" style={{ color: hasBalance ? '#ef4444' : '#10b981', fontWeight: 'bold' }}>
-                      ₱{balance} 
+                    <span className={`${cardValueClass} font-bold ${hasBalance ? 'text-red-500' : 'text-emerald-500'}`}>
+                      ₱{balance}
                       {!hasBalance && (
-                        <span style={{ fontSize: '0.7rem', color: '#10b981', fontWeight: 'normal', display: 'block' }}>
+                        <span className="text-[0.7rem] text-emerald-500 font-normal block">
                           ({lang === 'en' ? 'Cleared' : 'Bayad Na'})
                         </span>
                       )}
                       {hasBalance && (
-                        <span style={{ fontSize: '0.7rem', color: '#f87171', fontWeight: 'normal', display: 'block' }}>
+                        <span className="text-[0.7rem] text-red-400 font-normal block">
                           ({lang === 'en' ? 'Cash upon pick up' : 'Ibabayad sa pagkuha'})
                         </span>
                       )}
@@ -559,67 +513,60 @@ export default function Dashboard({ user, lang, activeTab }) {
 
                   {/* 🔥 VISUAL LATE PENALTY PARA SA CLIENT 🔥 */}
                   {penaltyFee > 0 && (
-                    <div className="card-row" style={{ backgroundColor: 'rgba(239, 68, 68, 0.15)', padding: '6px 8px', borderRadius: '6px', border: '1px dashed rgba(239, 68, 68, 0.5)', marginTop: '8px' }}>
-                      <span className="card-label" style={{ color: '#f87171', fontWeight: 'bold' }}>⚠️ {lang === 'en' ? 'LATE PENALTY' : 'LATE PENALTY'} ({overdueHours} {lang === 'en' ? 'hr/s' : 'oras'}):</span>
-                      <span className="card-value" style={{ color: '#ef4444', fontWeight: 'bold', fontSize: '1.1rem' }}>
+                    <div className={`${cardRowClass} bg-red-500/15 px-2 py-1.5 rounded-md border border-dashed border-red-500/50 mt-2`}>
+                      <span className={`${cardLabelClass} text-red-400 font-bold`}>⚠️ {lang === 'en' ? 'LATE PENALTY' : 'LATE PENALTY'} ({overdueHours} {lang === 'en' ? 'hr/s' : 'oras'}):</span>
+                      <span className={`${cardValueClass} text-red-500 font-bold text-[1.1rem]`}>
                         ₱{penaltyFee}
                       </span>
                     </div>
                   )}
 
                   {isExtended && (
-                    <div style={{ 
-                      marginTop: '12px', 
-                      paddingTop: '12px', 
-                      borderTop: '1px dashed rgba(255,255,255,0.1)', 
-                      display: 'flex', 
-                      flexDirection: 'column', 
-                      gap: '6px'
-                    }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                        <span style={{ color: '#eaa974', fontSize: '0.85rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <div className="mt-3 pt-3 border-t border-dashed border-white/10 flex flex-col gap-1.5">
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="text-brand-primary text-[0.85rem] font-extrabold flex items-center gap-1.5">
                           <span>🔄</span> {lang === 'en' ? 'Extension Details' : 'Detalye ng Extension'}
                         </span>
-                        {booking?.oras_ng_pag_extend && (
-                          <span style={{ fontSize: '0.7rem', color: '#64748b' }}>
+                        {booking?.extended_at && (
+                          <span className="text-xs text-slate-500">
                             {lang === 'en' ? 'Processed: ' : 'Na-process: '}
-                            {new Date(booking.oras_ng_pag_extend).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                            {new Date(booking.extended_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                           </span>
                         )}
                       </div>
 
-                      <div className="card-row">
-                        <span className="card-label">{lang === 'en' ? 'Mode of Payment (Ext):' : 'Paraan ng pagbabayad (Ext):'}</span>
-                        <span className="card-value" style={{ color: extPaymentColor, fontWeight: 'bold' }}>
+                      <div className={cardRowClass}>
+                        <span className={cardLabelClass}>{lang === 'en' ? 'Mode of Payment (Ext):' : 'Paraan ng pagbabayad (Ext):'}</span>
+                        <span className={`${cardValueClass} ${extPaymentClass} font-bold`}>
                           {extBaseMode}
                         </span>
                       </div>
 
-                      <div className="card-row">
-                        <span className="card-label">{lang === 'en' ? 'Total Amount (Ext):' : 'Kabuuang Halaga (Ext):'}</span>
-                        <span className="card-value" style={{ color: '#eaa974', fontWeight: '700' }}>
+                      <div className={cardRowClass}>
+                        <span className={cardLabelClass}>{lang === 'en' ? 'Total Amount (Ext):' : 'Kabuuang Halaga (Ext):'}</span>
+                        <span className={`${cardValueClass} text-brand-primary font-bold`}>
                           ₱{extTotalAmt}
                         </span>
                       </div>
 
                       {extBalance > 0 ? (
-                        <div className="card-row" style={{ backgroundColor: 'rgba(239, 68, 68, 0.05)', padding: '4px 8px', borderRadius: '6px' }}>
-                          <span className="card-label" style={{ color: '#f87171' }}>{lang === 'en' ? 'Balance (Ext):' : 'Balanse (Ext):'}</span>
-                          <span className="card-value" style={{ color: '#ef4444', fontWeight: 'bold' }}>
+                        <div className={`${cardRowClass} bg-red-500/5 px-2 py-1 rounded-md`}>
+                          <span className={`${cardLabelClass} text-red-400`}>{lang === 'en' ? 'Balance (Ext):' : 'Balanse (Ext):'}</span>
+                          <span className={`${cardValueClass} text-red-500 font-bold`}>
                             ₱{extBalance}
-                            <span style={{ fontSize: '0.7rem', color: '#f87171', fontWeight: 'normal', display: 'block' }}>
+                            <span className="text-[0.7rem] text-red-400 font-normal block">
                               ({lang === 'en' ? 'Cash upon return' : 'Ibabayad sa pag-return'})
                             </span>
                           </span>
                         </div>
                       ) : extTotalAmt > 0 ? (
-                        <div className="card-row">
-                          <span className="card-label">
-                            {extBaseMode === 'GCash' ? (lang === 'en' ? 'GCash Paid:' : 'Bayad sa GCash:') 
-                              : extBaseMode === 'Maya' ? (lang === 'en' ? 'Maya Paid:' : 'Bayad sa Maya:') 
+                        <div className={cardRowClass}>
+                          <span className={cardLabelClass}>
+                            {extBaseMode === 'GCash' ? (lang === 'en' ? 'GCash Paid:' : 'Bayad sa GCash:')
+                              : extBaseMode === 'Maya' ? (lang === 'en' ? 'Maya Paid:' : 'Bayad sa Maya:')
                               : (lang === 'en' ? 'Cash Paid:' : 'Bayad na Cash:')}
                           </span>
-                          <span className="card-value" style={{ color: '#10b981' }}>
+                          <span className={`${cardValueClass} text-emerald-500`}>
                             ₱{extPaidAmt}
                           </span>
                         </div>
@@ -628,49 +575,49 @@ export default function Dashboard({ user, lang, activeTab }) {
                     </div>
                   )}
 
-                  <div className="card-actions">
-                    {booking?.id_gobyerno_url ? (
-                      <div style={{ color: '#10b981', fontSize: '0.82rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '8px' }}>
+                  <div className="mt-auto pt-4 border-t border-white/5 flex flex-col gap-3">
+                    {booking?.government_id_url ? (
+                      <div className="text-emerald-500 text-[0.82rem] font-bold flex items-center gap-1 mb-2">
                         ✓ Verified ID / License
                       </div>
                     ) : (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '12px', backgroundColor: 'rgba(239, 68, 68, 0.08)', border: '1px dashed #ef4444', borderRadius: '10px', animation: 'urgentPulse 2s infinite', width: '100%', boxSizing: 'border-box', marginBottom: '8px' }}>
-                        <span style={{ color: '#f87171', fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase' }}>⚠️ Upload Gov ID Required</span>
-                        <input 
-                          type="file" 
-                          accept="image/*" 
+                      <div className="flex flex-col gap-1.5 p-3 bg-red-500/[0.08] border border-dashed border-red-500 rounded-[10px] w-full box-border mb-2 animate-[urgentPulse_2s_infinite]">
+                        <span className="text-red-400 text-xs font-extrabold uppercase">⚠️ Upload Gov ID Required</span>
+                        <input
+                          type="file"
+                          accept="image/*"
                           disabled={uploadingId === booking?.id}
-                          onChange={(e) => handleIDUpload(e, booking?.id)} 
-                          style={{ fontSize: '0.75rem', color: '#cbd5e1', width: '100%' }} 
+                          onChange={(e) => handleIDUpload(e, booking?.id)}
+                          className="text-xs text-slate-300 w-full file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-brand-primary file:text-brand-bg file:font-bold file:cursor-pointer"
                         />
                         {uploadingId === booking?.id && (
-                          <span style={{ fontSize: '0.75rem', color: '#eaa974', fontWeight: 'bold' }}>Uploading file...</span>
+                          <span className="text-xs text-brand-primary font-bold">Uploading file...</span>
                         )}
                       </div>
                     )}
 
-                    <div style={{ display: 'flex', gap: '8px', width: '100%', flexWrap: 'wrap' }}>
-                      
+                    <div className="flex gap-2 w-full flex-wrap">
+
                       {currentTab === 'active' && (status === 'Pending' || status === 'Approved') && (
-                        <button onClick={() => handleCancelBooking(booking?.id)} style={{ flex: 1, padding: '10px', background: 'rgba(239, 68, 68, 0.1)', color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '8px', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer', transition: 'all 0.2s' }}>
+                        <button onClick={() => handleCancelBooking(booking?.id)} className="flex-1 py-2.5 bg-red-500/10 text-red-400 border border-red-500/30 rounded-lg text-[0.8rem] font-bold cursor-pointer transition-colors hover:bg-red-500/20">
                           ✖️ Cancel Booking
                         </button>
                       )}
 
                       {currentTab === 'active' && status === 'Picked Up' && (
-                        <button onClick={() => setSelectedBookingForExtend(booking)} style={{ flex: 1, padding: '10px', background: 'rgba(52, 211, 153, 0.1)', color: '#34d399', border: '1px solid rgba(52, 211, 153, 0.3)', borderRadius: '8px', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer', transition: 'all 0.2s' }}>
+                        <button onClick={() => setSelectedBookingForExtend(booking)} className="flex-1 py-2.5 bg-emerald-400/10 text-emerald-400 border border-emerald-400/30 rounded-lg text-[0.8rem] font-bold cursor-pointer transition-colors hover:bg-emerald-400/20">
                           ⏳ Extend Booking
                         </button>
                       )}
 
                       {currentTab === 'history' && status === 'Completed' && !isAlreadyReviewed && (
-                        <button onClick={() => setSelectedBookingForReview(booking)} style={{ flex: 1, padding: '10px', background: '#eaa974', color: '#0f172a', border: 'none', borderRadius: '8px', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer' }}>
+                        <button onClick={() => setSelectedBookingForReview(booking)} className="btn-primary flex-1 py-2.5 text-[0.8rem]">
                           Review Unit
                         </button>
                       )}
-                      
+
                       {currentTab === 'history' && (
-                        <button onClick={() => hideFromHistory(booking?.id)} style={{ flex: 1, padding: '10px', background: 'rgba(255,255,255,0.05)', color: '#94a3b8', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', fontSize: '0.8rem', cursor: 'pointer' }}>
+                        <button onClick={() => hideFromHistory(booking?.id)} className="flex-1 py-2.5 bg-white/5 text-brand-muted border border-white/10 rounded-lg text-[0.8rem] cursor-pointer hover:bg-white/10 transition-colors">
                           Archive
                         </button>
                       )}
@@ -697,14 +644,14 @@ export default function Dashboard({ user, lang, activeTab }) {
       )}
 
       {selectedBookingForReview && (
-        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(5, 8, 16, 0.85)', backdropFilter: 'blur(8px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 9999 }}>
-          <div style={{ backgroundColor: '#111827', border: '1px solid rgba(254, 255, 255, 0.08)', borderRadius: '16px', padding: '2rem', width: '100%', maxWidth: '420px', boxSizing: 'border-box' }}>
-            <h3 style={{ margin: '0 0 4px 0', color: '#fff', fontSize: '1.3rem', fontWeight: '800' }}>Write a Review</h3>
-            <p style={{ margin: '0 0 1.5rem 0', color: '#94a3b8', fontSize: '0.8rem' }}>Unit: {selectedBookingForReview?.pangalan_ng_motor || 'Unit'}</p>
-            <form onSubmit={submitReviewHandler} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div className="fixed inset-0 bg-[rgba(5,8,16,0.85)] backdrop-blur-md flex justify-center items-center z-[9999] p-4">
+          <div className="bg-brand-card/95 backdrop-blur-xl border border-brand-primary/15 rounded-3xl p-8 w-full max-w-[420px] box-border shadow-[0_0_0_1px_rgba(234,169,116,0.04),0_30px_60px_rgba(0,0,0,0.6)] animate-[fadeInEffect_0.25s_ease-out]">
+            <h3 className="font-display mb-1 text-white text-[1.3rem] font-bold">Write a Review</h3>
+            <p className="mb-6 text-brand-muted text-[0.8rem]">Unit: {selectedBookingForReview?.motorcycle_name || 'Unit'}</p>
+            <form onSubmit={submitReviewHandler} className="flex flex-col gap-3">
               <div>
-                <label style={{ display: 'block', color: '#cbd5e1', fontSize: '0.78rem', fontWeight: '600', marginBottom: '4px' }}>Rating Star Score:</label>
-                <select value={rating} onChange={(e) => setRating(e.target.value)} style={styles.glassInput}>
+                <label className="block text-slate-300 text-[0.78rem] font-semibold mb-1">Rating Star Score:</label>
+                <select value={rating} onChange={(e) => setRating(e.target.value)} className={glassInputClass}>
                   <option value="5">⭐⭐⭐⭐⭐ Excellent Deal (5/5)</option>
                   <option value="4">⭐⭐⭐⭐ Great Experience (4/5)</option>
                   <option value="3">⭐⭐⭐ Standard Average (3/5)</option>
@@ -713,17 +660,20 @@ export default function Dashboard({ user, lang, activeTab }) {
                 </select>
               </div>
               <div>
-                <label style={{ display: 'block', color: '#cbd5e1', fontSize: '0.78rem', fontWeight: '600', marginBottom: '4px' }}>Feedback Commentary:</label>
-                <textarea rows="3" required value={comment} onChange={(e) => setComment(e.target.value)} placeholder="How was your experience?" style={{ ...styles.glassInput, resize: 'none' }}></textarea>
+                <label className="block text-slate-300 text-[0.78rem] font-semibold mb-1">Feedback Commentary:</label>
+                <textarea rows="3" required value={comment} onChange={(e) => setComment(e.target.value)} placeholder="How was your experience?" className={`${glassInputClass} resize-none`}></textarea>
               </div>
-              <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
-                <button type="button" onClick={() => setSelectedBookingForReview(null)} style={{ flex: 1, padding: '10px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '600' }}>Cancel</button>
-                <button type="submit" disabled={submittingReview} style={{ flex: 1, padding: '10px', background: '#eaa974', border: 'none', borderRadius: '8px', color: '#0f172a', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '700' }}>{submittingReview ? 'Sending...' : 'Post Review'}</button>
+              <div className="flex gap-2 mt-1">
+                <button type="button" onClick={() => setSelectedBookingForReview(null)} className="btn-ghost flex-1 py-2.5 text-[0.85rem]">Cancel</button>
+                <button type="submit" disabled={submittingReview} className="btn-primary flex-1 py-2.5 text-[0.85rem] disabled:opacity-60 disabled:cursor-not-allowed disabled:translate-y-0 disabled:shadow-none">{submittingReview ? 'Sending...' : 'Post Review'}</button>
               </div>
             </form>
           </div>
         </div>
       )}
+
+      <Toast toast={toast} onDismiss={() => setToast(null)} />
+      <ConfirmDialog confirmState={confirmState} onCancel={() => setConfirmState(null)} />
 
     </div>
   );

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import mainWebsiteBg from '../assets/BG.png';
-import { supabase } from '../supabaseClient'; 
+import { supabase } from '../supabaseClient';
 
 // 📸 LOCAL ASSETS IMPORT (Places folder)
 import baguioImg from '../assets/Places/Baguio.jpg';
@@ -10,13 +10,28 @@ import pagudpudImg from '../assets/Places/Pagudpud.jpg';
 import tagaytayImg from '../assets/Places/TAGAYTAY.jpg';
 import viganImg from '../assets/Places/Vigan.jpg';
 
-// 🏍️ MOTOR ASSETS IMPORT (Bikes folder)
+// 🏍️ Local fallback photos — used only for motors without an admin-uploaded image_url
 import nmaxImg from '../assets/Bikes/nmaxv3.jpg';
 import aeroxImg from '../assets/Bikes/aeroxv3.jpg';
 import clickImg from '../assets/Bikes/click125.jpg';
 import beatImg from '../assets/Bikes/beat.jpg';
 import fazzioImg from '../assets/Bikes/fazzio.png';
-import mioiImg from '../assets/Bikes/mio i 125.jpg'; 
+import mioiImg from '../assets/Bikes/mio i 125.jpg';
+
+function getFallbackImage(name) {
+  const n = String(name || '').toLowerCase();
+  if (n.includes('nmax')) return nmaxImg;
+  if (n.includes('aerox')) return aeroxImg;
+  if (n.includes('click')) return clickImg;
+  if (n.includes('beat')) return beatImg;
+  if (n.includes('fazzio')) return fazzioImg;
+  if (n.includes('mio')) return mioiImg;
+  return null;
+}
+
+// Rank-based badge labels — describe the *position* (1st/2nd/3rd most booked),
+// not a fixed per-bike label, so they stay accurate as booking counts shift.
+const RANK_BADGES = ['TOP PERFORMANCE RIDE', 'MOST POPULAR CHOICE', 'BUDGET FRIENDLY CHOICE'];
 
 const DESTINATIONS = [
   { id: 1, name: 'BAGUIO CITY', desc: 'Navigate the misty, winding mountain passes and feel the crisp breeze of the City of Pines.', img: baguioImg },
@@ -33,76 +48,57 @@ function BikeImage({ src, alt }) {
 
   if (isError) {
     return (
-      <div style={{ 
-        width: '65px', height: '65px', borderRadius: '12px', 
-        backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', 
-        display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.4rem' 
-      }}>
+      <div className="w-16 h-16 rounded-xl bg-white/[0.03] border border-white/[0.08] flex items-center justify-center text-2xl shrink-0">
         🏍️
       </div>
     );
   }
 
   return (
-    <img 
-      src={src} 
-      alt={alt} 
+    <img
+      src={src}
+      alt={alt}
       onError={() => setIsError(true)}
-      style={{ width: '65px', height: '65px', borderRadius: '12px', objectFit: 'cover', border: '1px solid rgba(255,255,255,0.1)' }} 
+      className="w-16 h-16 rounded-xl object-cover border border-white/10 shrink-0"
     />
   );
 }
 
 export default function Hero({ lang, setActiveTab }) {
-  const textColorMuted = '#94a3b8';
-  const textColorFull = '#ffffff';
-  const futuristicGold = '#eaa974';
-  
   const [currentSlide, setCurrentSlide] = useState(0);
   const [touchStart, setTouchStart] = useState(null);
 
-  // 📊 LIVE STATS STATE
-  const [bikeStats, setBikeStats] = useState({
-    nmax: 0,
-    aerox: 0,
-    click: 0,
-    fazzio: 0,
-    mio: 0,
-    beat: 0
-  });
+  // 🏍️ LIVE FLEET + BOOKING STATS STATE
+  const [fleetModels, setFleetModels] = useState([]);
+  const [bikeStats, setBikeStats] = useState({});
   const [isLoadingStats, setIsLoadingStats] = useState(true);
 
-  // 📡 REAL-TIME SUPABASE QUERY
+  // 📡 REAL-TIME SUPABASE QUERY — pulls the live fleet catalog, then counts
+  // how many bookings reference each motor by name to rank "Top Picks".
   useEffect(() => {
-    async function fetchRealRentalStats() {
+    async function fetchFleetAndStats() {
       try {
         setIsLoadingStats(true);
-        
-        const { data: bookings, error } = await supabase
-          .from('mga_arkila')
-          .select('pangalan_ng_motor');
 
-        if (error) {
-          console.error("Supabase Query Error:", error.message);
-          return;
-        }
+        const [{ data: motors, error: motorsError }, { data: bookings, error: bookingsError }] = await Promise.all([
+          supabase.from('motorcycles').select('*'),
+          supabase.from('bookings').select('motorcycle_name')
+        ]);
 
-        if (bookings) {
-          const countNmax = bookings.filter(b => b.pangalan_ng_motor?.toLowerCase().includes('nmax')).length;
-          const countAerox = bookings.filter(b => b.pangalan_ng_motor?.toLowerCase().includes('aerox')).length;
-          const countClick = bookings.filter(b => b.pangalan_ng_motor?.toLowerCase().includes('click')).length;
-          const countFazzio = bookings.filter(b => b.pangalan_ng_motor?.toLowerCase().includes('fazzio')).length;
-          const countMio = bookings.filter(b => b.pangalan_ng_motor?.toLowerCase().includes('mio')).length;
-          const countBeat = bookings.filter(b => b.pangalan_ng_motor?.toLowerCase().includes('beat')).length;
+        if (motorsError) console.error("Supabase Query Error:", motorsError.message);
+        if (bookingsError) console.error("Supabase Query Error:", bookingsError.message);
 
-          setBikeStats({
-            nmax: countNmax,
-            aerox: countAerox,
-            click: countClick,
-            fazzio: countFazzio,
-            mio: countMio,
-            beat: countBeat
+        setFleetModels(motors || []);
+
+        if (motors && bookings) {
+          const counts = {};
+          motors.forEach((motor) => {
+            const motorName = (motor.name || '').toLowerCase();
+            counts[motor.id] = bookings.filter(
+              (b) => b.motorcycle_name?.toLowerCase().trim() === motorName
+            ).length;
           });
+          setBikeStats(counts);
         }
       } catch (err) {
         console.error("System Error during fetch:", err);
@@ -111,7 +107,7 @@ export default function Hero({ lang, setActiveTab }) {
       }
     }
 
-    fetchRealRentalStats();
+    fetchFleetAndStats();
   }, []);
 
   useEffect(() => {
@@ -140,170 +136,114 @@ export default function Hero({ lang, setActiveTab }) {
   const handleNavigationClick = (e) => {
     if (e) e.preventDefault();
     if (typeof setActiveTab === 'function') {
-      setActiveTab('bikes'); 
+      setActiveTab('bikes');
     }
   };
 
-  // 🏆 DYNAMIC SNEAK PEEK ARCHITECTURE
-  const allFleetModels = [
-    { key: 'nmax', name: 'Yamaha NMAX V3', img: nmaxImg, tagline: 'Comfort meets max performance.', badge: 'MOST POPULAR CHOICE' },
-    { key: 'aerox', name: 'Yamaha Aerox V3', img: aeroxImg, tagline: 'Aerodynamic race styling DNA.', badge: 'TOP PERFORMANCE RIDE' },
-    { key: 'click', name: 'Honda Click 125', img: clickImg, tagline: 'The ultimate city fuel saver.', badge: 'HIGHLY RELIABLE RENTAL' },
-    { key: 'fazzio', name: 'Yamaha Fazzio', img: fazzioImg, tagline: 'Retro classic style ride.', badge: 'RETRO VIBE CHOICE' },
-    { key: 'mio', name: 'Mio i 125', img: mioiImg, tagline: 'Daily reliable commuter.', badge: 'DAILY DRIVER CHOICE' },
-    { key: 'beat', name: 'Honda Beat', img: beatImg, tagline: 'Agile & Efficient city rider.', badge: 'BUDGET FRIENDLY CHOICE' }
-  ];
-
-  const topThreeFleet = [...allFleetModels]
-    .sort((a, b) => (bikeStats[b.key] || 0) - (bikeStats[a.key] || 0))
+  // 🏆 DYNAMIC SNEAK PEEK — top 3 most-booked motors from the live fleet
+  const topThreeFleet = [...fleetModels]
+    .sort((a, b) => (bikeStats[b.id] || 0) - (bikeStats[a.id] || 0))
     .slice(0, 3);
 
   return (
-    <section 
-      id="home" 
-      style={{ 
-        width: '100%', minHeight: '100vh', display: 'flex', flexDirection: 'column', 
-        justifyContent: 'center', alignItems: 'center', backgroundImage: `url(${mainWebsiteBg})`, 
-        backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat',
-        backgroundColor: '#050811', boxSizing: 'border-box', position: 'relative', padding: '2rem'
-      }}
+    <section
+      id="home"
+      className="w-full min-h-screen flex flex-col justify-center items-center bg-brand-bg bg-cover bg-center bg-no-repeat relative box-border p-4 sm:p-8 overflow-hidden"
+      style={{ backgroundImage: `url(${mainWebsiteBg})` }}
     >
-      <style>{`
-        .hero-dashboard-grid {
-          display: grid;
-          grid-template-columns: 1.6fr 1fr; /* 💻 MAS PI-NALAPAD ANG KALIWANG BOX CONFIG */
-          gap: 2rem;
-          max-width: 1240px;
-          width: 100%;
-          margin-top: 110px;
-          margin-bottom: 3rem;
-          zIndex: 20;
-          align-items: stretch; /* 💻 PINAPANTAY ANG TAAS AT IBABA NG DALAWA */
-          animation: fadeLoadIn 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
-        
-        .cyber-panel-left, .cyber-panel-right { transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
-        .cyber-panel-left:hover { border-color: rgba(234, 169, 116, 0.35) !important; box-shadow: 0 40px 80px rgba(234, 169, 116, 0.04) !important; }
-        .cyber-panel-right:hover { border-color: rgba(234, 169, 116, 0.25) !important; box-shadow: 0 40px 80px rgba(234, 169, 116, 0.02) !important; }
+      <div className="absolute top-0 left-0 w-full h-[90px] bg-transparent z-10" />
 
-        .fleet-live-card { transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1); cursor: pointer; }
-        .fleet-live-card:hover {
-          transform: translateY(-3px);
-          background-color: rgba(255, 255, 255, 0.05) !important;
-          border-color: rgba(234, 169, 116, 0.4) !important;
-          box-shadow: 0 15px 30px rgba(0, 0, 0, 0.4);
-        }
+      {/* Ambient depth glows */}
+      <div className="absolute top-[10%] left-[5%] w-[420px] h-[420px] rounded-full bg-brand-primary/10 blur-[120px] pointer-events-none animate-[ambientDrift_14s_ease-in-out_infinite]" />
+      <div className="absolute bottom-[5%] right-[8%] w-[360px] h-[360px] rounded-full bg-brand-primary/[0.07] blur-[110px] pointer-events-none animate-[ambientDrift_18s_ease-in-out_infinite_reverse]" />
 
-        .side-fleet-stack { display: flex; flex-direction: column; gap: 16px; }
-        @keyframes fadeLoadIn { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
-        @media (max-width: 1024px) { .hero-dashboard-grid { grid-template-columns: 1fr; margin-top: 100px; gap: 1.5rem; } }
-      `}</style>
+      <div className="grid grid-cols-1 lg:grid-cols-[1.6fr_1fr] gap-6 lg:gap-8 max-w-[1240px] w-full mt-[100px] lg:mt-[110px] mb-12 z-20 items-stretch animate-[fadeLoadIn_1s_cubic-bezier(0.16,1,0.3,1)_forwards]">
 
-      {/* 🧼 BUFFER SPACE */}
-      <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '90px', backgroundColor: 'transparent', zIndex: 10 }} />
-
-      <div className="hero-dashboard-grid">
-        
         {/* 🪟 LEFT DOMINANT COORDINATES PANEL */}
-        <div className="cyber-panel-left" style={{
-          backgroundColor: 'rgba(10, 15, 30, 0.8)', backdropFilter: 'blur(24px)',
-          border: `1px solid rgba(234, 169, 116, 0.2)`, borderRadius: '28px',
-          display: 'flex', flexDirection: 'column', padding: '2.5rem 2rem', gap: '2rem', boxSizing: 'border-box'
-        }}>
+        <div className="glass-panel flex flex-col p-6 sm:p-10 gap-8 box-border transition-all duration-500 hover:border-brand-primary/40">
           <div>
-            <h1 style={{ fontSize: 'clamp(2.2rem, 5vw, 3.8rem)', fontWeight: '950', color: textColorFull, lineHeight: '1.1', margin: '0 0 10px 0', letterSpacing: '-1.5px', textTransform: 'uppercase' }}>
-              WANT TO RIDE?
+            <span className="eyebrow block mb-3">Norzagaray · Bulacan</span>
+            <h1 className="font-display text-[clamp(2.3rem,5vw,3.9rem)] font-bold text-white leading-[1.05] m-0 mb-3 tracking-[-0.02em] uppercase text-balance">
+              Want to <span className="text-brand-primary">Ride?</span>
             </h1>
-            <p style={{ color: textColorMuted, margin: 0, fontSize: '0.95rem', letterSpacing: '0.5px', maxWidth: '480px' }}>
+            <p className="text-brand-muted m-0 text-[0.95rem] tracking-wide max-w-[480px] leading-relaxed">
               Select your coordinates. Access premium open-road machinery instantly.
             </p>
           </div>
 
-          {/* 💻 PINALAKI ANG HEIGHT NG SLIDER PARA MAS MAGANDA ANG ASPECT RATIO AT PANTAY SA KANAN */}
-          <div onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} style={{ position: 'relative', width: '100%', flex: 1, minHeight: '460px', backgroundColor: '#090d16', borderRadius: '20px', overflow: 'hidden', border: '1px solid rgba(255, 255, 255, 0.05)', boxShadow: '0 20px 40px rgba(0,0,0,0.5)', cursor: 'grab' }}>
-            <div style={{ display: 'flex', width: '100%', height: '100%', transform: `translateX(-${currentSlide * 100}%)`, transition: 'transform 0.8s cubic-bezier(0.16, 1, 0.3, 1)' }}>
+          <div
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            className="relative w-full flex-1 min-h-[460px] bg-[#090d16] rounded-[20px] overflow-hidden border border-white/5 shadow-[0_20px_40px_rgba(0,0,0,0.5)] cursor-grab"
+          >
+            <div
+              className="flex w-full h-full transition-transform duration-[800ms] ease-[cubic-bezier(0.16,1,0.3,1)]"
+              style={{ transform: `translateX(-${currentSlide * 100}%)` }}
+            >
               {DESTINATIONS.map((dest) => (
-                <div key={dest.id} style={{ flexShrink: 0, width: '100%', height: '100%', position: 'relative' }}>
-                  <img src={dest.img} alt={dest.name} style={{ width: '100%', height: '100%', objectFit: 'cover', pointerEvents: 'none' }} />
-                  <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(5, 8, 17, 0.95) 0%, rgba(5, 8, 17, 0.1) 60%, transparent 100%)', pointerEvents: 'none' }} />
-                  <div style={{ position: 'absolute', bottom: '30px', left: '30px', right: '30px', zIndex: 5 }}>
-                    <h3 style={{ color: '#fff', margin: '0 0 4px 0', fontSize: '1.8rem', fontWeight: '900', letterSpacing: '-0.5px' }}>{dest.name}</h3>
-                    <p style={{ color: '#94a3b8', margin: 0, fontSize: '0.88rem', lineHeight: '1.4', maxWidth: '90%' }}>{dest.desc}</p>
+                <div key={dest.id} className="shrink-0 w-full h-full relative">
+                  <img src={dest.img} alt={dest.name} className="w-full h-full object-cover pointer-events-none" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#050811] from-0% via-[rgba(5,8,17,0.1)] via-60% to-transparent to-100% pointer-events-none" />
+                  <div className="absolute bottom-8 left-8 right-8 z-[5]">
+                    <h3 className="font-display text-white m-0 mb-1.5 text-2xl sm:text-3xl font-bold tracking-tight">{dest.name}</h3>
+                    <p className="text-slate-300 m-0 text-sm leading-snug max-w-[90%]">{dest.desc}</p>
                   </div>
                 </div>
               ))}
             </div>
-            <div style={{ position: 'absolute', bottom: '34px', right: '30px', display: 'flex', gap: '8px', zIndex: 10, alignItems: 'center' }}>
+            <div className="absolute bottom-9 right-8 flex gap-2 z-10 items-center">
               {DESTINATIONS.map((_, index) => (
-                <button key={index} onClick={() => setCurrentSlide(index)} style={{ padding: 0, border: 'none', cursor: 'pointer', height: '6px', width: index === currentSlide ? '24px' : '6px', borderRadius: '3px', backgroundColor: index === currentSlide ? futuristicGold : 'rgba(255, 255, 255, 0.2)', boxShadow: index === currentSlide ? `0 0 12px ${futuristicGold}` : 'none', transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)' }} />
+                <button
+                  key={index}
+                  onClick={() => setCurrentSlide(index)}
+                  className={`p-0 border-none cursor-pointer h-1.5 rounded-full transition-all duration-400 ${
+                    index === currentSlide ? 'w-6 bg-brand-primary shadow-[0_0_12px_#eaa974]' : 'w-1.5 bg-white/20'
+                  }`}
+                />
               ))}
             </div>
           </div>
         </div>
 
         {/* ⚡ RIGHT SIDE FLEET STACK */}
-        <div className="cyber-panel-right" style={{
-          backgroundColor: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(20px)',
-          border: '1px solid rgba(255, 255, 255, 0.06)', borderRadius: '28px',
-          padding: '2.5rem 1.8rem', display: 'flex', flexDirection: 'column', gap: '1.5rem',
-          boxShadow: '0 25px 50px rgba(0,0,0,0.45)', boxSizing: 'border-box'
-        }}>
+        <div className="glass-panel border-white/[0.08] p-6 sm:p-8 flex flex-col gap-6 box-border transition-all duration-500 hover:border-brand-primary/30">
           <div>
-            <div style={{ fontSize: '0.75rem', color: futuristicGold, letterSpacing: '3px', fontWeight: '900', textTransform: 'uppercase', marginBottom: '6px' }}>
-              POPULAR RIDER CHOICE
-            </div>
-            <h2 style={{ color: '#ffffff', margin: 0, fontSize: '1.6rem', fontWeight: '900', letterSpacing: '-0.5px' }}>
-              TOP PICKS THIS MONTH
+            <span className="eyebrow block mb-1.5">Popular Rider Choice</span>
+            <h2 className="font-display text-white m-0 text-2xl font-bold tracking-tight">
+              Top Picks This Month
             </h2>
-            <p style={{ color: textColorMuted, margin: '4px 0 0 0', fontSize: '0.85rem', lineHeight: '1.3' }}>
+            <p className="text-brand-muted mt-1.5 mb-0 text-sm leading-relaxed">
               The most requested and high-demand premium machinery active this month.
             </p>
           </div>
 
-          <div className="side-fleet-stack" style={{ flex: 1, justifyContent: 'center' }}>
+          <div className="flex flex-col gap-4 flex-1 justify-center">
             {topThreeFleet.map((bike, index) => (
-              <div 
-                key={bike.key}
-                className="fleet-live-card" 
+              <div
+                key={bike.id}
                 onClick={handleNavigationClick}
-                style={{ 
-                  backgroundColor: 'rgba(5, 8, 17, 0.6)', border: '1px solid rgba(255, 255, 255, 0.05)', 
-                  borderRadius: '18px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px'
-                }}
+                className="bg-[rgba(5,8,17,0.6)] border border-white/5 rounded-2xl p-4 flex flex-col gap-3 cursor-pointer transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-0.5 hover:bg-white/5 hover:border-brand-primary/40 hover:shadow-[0_15px_30px_rgba(0,0,0,0.4)]"
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                  <BikeImage src={bike.img} alt={bike.name} />
-                  <div style={{ flex: 1 }}>
-                    <div style={{ 
-                      backgroundColor: 'rgba(234, 169, 116, 0.1)', color: futuristicGold, 
-                      fontSize: '0.62rem', fontWeight: '900', padding: '2px 8px', 
-                      borderRadius: '4px', display: 'inline-block', marginBottom: '4px',
-                      border: '1px solid rgba(234, 169, 116, 0.15)'
-                    }}>
-                      RANK #{index + 1} • {bike.badge}
+                <div className="flex items-center gap-4">
+                  <BikeImage src={bike.image_url || getFallbackImage(bike.name)} alt={bike.name} />
+                  <div className="flex-1 min-w-0">
+                    <div className="bg-brand-primary/10 text-brand-primary text-[0.62rem] font-black px-2 py-0.5 rounded mb-1 inline-block border border-brand-primary/15">
+                      RANK #{index + 1} • {RANK_BADGES[index] || 'FAN FAVORITE'}
                     </div>
-                    <h4 style={{ color: '#fff', margin: 0, fontSize: '1.05rem', fontWeight: '800' }}>{bike.name}</h4>
-                    <p style={{ color: textColorMuted, margin: 0, fontSize: '0.78rem' }}>{bike.tagline}</p>
+                    <h4 className="font-display text-white m-0 text-base font-bold">{bike.name}</h4>
+                    <p className="text-brand-muted m-0 text-xs">{bike.tagline || bike.description}</p>
                   </div>
                 </div>
-                
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div style={{ 
-                    flex: 1, backgroundColor: 'rgba(234, 169, 116, 0.02)', padding: '10px 14px', 
-                    borderRadius: '10px', border: '1px solid rgba(234, 169, 116, 0.15)', 
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center' 
-                  }}>
-                    <span style={{ color: '#94a3b8', fontSize: '0.75rem', fontWeight: '600' }}>Total Booked:</span>
-                    <span style={{ color: futuristicGold, fontSize: '0.82rem', fontWeight: '800', letterSpacing: '0.5px' }}>
-                      {isLoadingStats ? '...' : `${bikeStats[bike.key] || 0} Times`}
+
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 bg-brand-primary/[0.02] px-3.5 py-2.5 rounded-lg border border-brand-primary/15 flex justify-between items-center">
+                    <span className="text-brand-muted text-xs font-semibold">Total Booked:</span>
+                    <span className="text-brand-primary text-[0.82rem] font-extrabold tracking-wide">
+                      {isLoadingStats ? '...' : `${bikeStats[bike.id] || 0} Times`}
                     </span>
                   </div>
-                  
-                  <div style={{
-                    border: '1px solid rgba(234, 169, 116, 0.4)', color: futuristicGold, padding: '10px 14px', 
-                    borderRadius: '10px', fontSize: '0.72rem', fontWeight: '900', letterSpacing: '1px',
-                    whiteSpace: 'nowrap'
-                  }}>
+
+                  <div className="border border-brand-primary/40 text-brand-primary px-3.5 py-2.5 rounded-lg text-[0.72rem] font-black tracking-wide whitespace-nowrap">
                     RENT NOW
                   </div>
                 </div>
@@ -312,22 +252,14 @@ export default function Hero({ lang, setActiveTab }) {
           </div>
 
           {/* 🎯 MAIN BOTTOM RENT NOW CTA BUTTON */}
-          <button 
+          <button
             onClick={handleNavigationClick}
-            style={{
-              backgroundColor: futuristicGold, color: '#0f172a', padding: '14px 24px',
-              border: 'none', borderRadius: '12px', fontSize: '0.92rem', fontWeight: '950',
-              cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '1px',
-              boxShadow: '0 10px 20px rgba(234, 169, 116, 0.15)', transition: 'all 0.3s ease',
-              width: '100%', display: 'block', marginTop: 'auto'
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 15px 25px rgba(234, 169, 116, 0.35)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 10px 20px rgba(234, 169, 116, 0.15)'; }}
+            className="btn-primary px-6 py-3.5 text-[0.92rem] uppercase tracking-wide w-full block mt-auto"
           >
             {lang === 'en' ? 'Rent Now' : 'Arkila Na'}
           </button>
 
-          <div style={{ textTransform: 'none', textAlign: 'center', fontSize: '0.72rem', color: futuristicGold, paddingTop: '4px', fontWeight: '600', letterSpacing: '0.5px' }}>
+          <div className="text-center text-xs text-brand-primary pt-1 font-semibold tracking-wide">
             ✓ Verified Cyber-Fleet Analytics
           </div>
 

@@ -9,7 +9,7 @@ export default function Reviews({ lang }) {
   const fetchReviews = async () => {
     try {
       const { data, error } = await supabase
-        .from('mga_review')
+        .from('reviews')
         .select('*')
         .order('created_at', { ascending: false });
 
@@ -32,107 +32,59 @@ export default function Reviews({ lang }) {
 
   if (loading) {
     return (
-      <div style={{ textAlign: 'center', padding: '5rem', color: '#ffffff' }}>
+      <div className="text-center py-20 text-white">
         <p>⏳ Loading transparency wall...</p>
       </div>
     );
   }
 
   return (
-    <section 
-      id="reviews" 
-      style={{ 
-        width: '100%',
-        minHeight: '100vh', 
-        display: 'flex', 
-        flexDirection: 'column', 
-        justifyContent: 'flex-start', 
-        alignItems: 'center', 
-        backgroundImage: `url(${mainWebsiteBg})`, 
-        backgroundSize: '100% 100%', 
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat',
-        backgroundColor: '#0f172a', 
-        boxSizing: 'border-box',
-        position: 'relative',
-        padding: '0 1rem 160px 1rem' 
-      }}
+    <section
+      id="reviews"
+      className="w-full min-h-screen flex flex-col items-center bg-[#0f172a] bg-cover bg-center bg-no-repeat box-border relative px-4 pb-40 pt-0"
+      style={{ backgroundImage: `url(${mainWebsiteBg})` }}
     >
-      {/* POSITION BLOCK OFFSET: Pinabababa ang buong card container para lumitaw mula sa likod ng Navbar */}
-      <div style={{
-        position: 'relative',
-        top: '130px',
-        backgroundColor: 'rgba(21, 28, 41, 0.88)', 
-        backdropFilter: 'blur(16px)',
-        WebkitBackdropFilter: 'blur(16px)',
-        border: '2px solid rgba(234, 169, 116, 0.6)', 
-        borderRadius: '32px',
-        maxWidth: '850px', 
-        width: '100%', 
-        padding: '3.5rem 2rem',
-        boxSizing: 'border-box',
-        boxShadow: '0 0 50px rgba(234, 169, 116, 0.15), 0 40px 80px -15px rgba(0, 0, 0, 0.8)',
-        zIndex: 20,
-        marginBottom: '4rem'
-      }}>
+      <div className="glass-panel relative top-[130px] border-2 max-w-[850px] w-full p-6 sm:p-14 box-border z-20 mb-16">
 
-        {/* Title Block */}
-        <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
-          <h2 style={{ fontSize: '2.5rem', fontWeight: '900', color: '#ffffff', margin: '0 0 0.5rem 0', letterSpacing: '1px' }}>
-            {lang === 'en' ? 'CLIENT ' : 'MGA '}<span style={{ color: '#eaa974' }}>REVIEWS</span>
+        <div className="text-center mb-10">
+          <span className="eyebrow block mb-2">Straight From The Road</span>
+          <h2 className="font-display text-3xl sm:text-4xl font-bold text-white mb-2 tracking-wide text-balance">
+            {lang === 'en' ? 'Client ' : 'Mga '}<span className="text-brand-primary">Reviews</span>
           </h2>
-          <p style={{ color: '#cbd5e1', fontSize: '1rem', margin: 0 }}>
-            {lang === 'en' 
+          <p className="text-slate-300 text-base m-0">
+            {lang === 'en'
               ? 'Read genuine experiences and transparent ride logs submitted by our community drivers.'
               : 'Basahin ang mga tunay na karanasan at transparent ride logs na ipinasa ng ating mga drivers.'}
           </p>
         </div>
 
-        {/* REVIEWS DISPATCH HANDLING LIST */}
         {reviews.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '3rem', color: '#94a3b8', backgroundColor: 'rgba(30, 41, 59, 0.4)', borderRadius: '16px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+          <div className="text-center py-12 text-brand-muted bg-brand-surface/40 rounded-2xl border border-white/5">
             {lang === 'en' ? 'No verified client logs posted yet.' : 'Wala pang naka-post na verified client review.'}
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          <div className="flex flex-col gap-5">
             {reviews.map((rev) => (
-              <div 
-                key={rev.id} 
-                style={{ 
-                  backgroundColor: 'rgba(30, 41, 59, 0.6)', 
-                  border: '1px solid rgba(255, 255, 255, 0.08)', 
-                  borderRadius: '16px', 
-                  padding: '1.5rem', 
-                  textAlign: 'left',
-                  boxShadow: '0 4px 20px rgba(0,0,0,0.15)'
-                }}
+              <div
+                key={rev.id}
+                className="glass-card glass-card-hover p-6 text-left"
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                <div className="flex justify-between flex-wrap gap-2 mb-3">
                   <div>
-                    <strong style={{ color: '#eaa974', fontSize: '1.05rem', letterSpacing: '0.5px' }}>@{rev.pangalan_ng_kliyente || 'Client'}</strong>
-                    <span style={{ fontSize: '0.8rem', color: '#94a3b8', marginLeft: '12px' }}>
+                    <strong className="text-brand-primary text-[1.05rem] tracking-wide">@{rev.client_name || 'Client'}</strong>
+                    <span className="text-xs text-brand-muted ml-3">
                       {new Date(rev.created_at).toLocaleDateString()}
                     </span>
                   </div>
-                  <div style={{ fontSize: '0.95rem' }}>{renderStars(rev.rating)}</div>
-                </div>
-                
-                <div style={{ 
-                  fontSize: '0.8rem', 
-                  fontWeight: '700',
-                  color: '#ffffff', 
-                  display: 'inline-block', 
-                  backgroundColor: 'rgba(234, 169, 116, 0.15)', 
-                  border: '1px solid rgba(234, 169, 116, 0.3)',
-                  padding: '4px 10px', 
-                  borderRadius: '8px', 
-                  marginBottom: '12px'
-                }}>
-                  Unit: {rev.motor_na_narkila || rev.motor_na_arkila || rev.pangalan_ng_motor || 'Motorcycle Unit'}
+                  <div className="text-[0.95rem]">{renderStars(rev.rating)}</div>
                 </div>
 
-                <p style={{ fontSize: '1rem', color: '#f1f5f9', lineHeight: '1.6', margin: 0, fontStyle: 'italic' }}>
-                  "{rev.mensahe_ng_review || rev.komento || rev.message || rev.komento || 'No comment provided.'}"
+                <div className="text-xs font-bold text-white inline-block bg-brand-primary/15 border border-brand-primary/30 px-2.5 py-1 rounded-lg mb-3">
+                  Unit: {rev.motorcycle_name || 'Motorcycle Unit'}
+                </div>
+
+                <p className="text-base text-slate-100 leading-relaxed m-0 italic">
+                  "{rev.comment || 'No comment provided.'}"
                 </p>
               </div>
             ))}

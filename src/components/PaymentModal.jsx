@@ -1,35 +1,40 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 
+const selectClass = "w-full bg-brand-surface/50 border border-white/10 rounded-xl p-3 text-white text-[0.9rem] outline-none focus:border-brand-primary/60 transition-colors";
+const numberInputClass = "bg-brand-surface/50 border border-white/10 rounded-xl p-3 text-white outline-none focus:border-brand-primary/60 transition-colors";
+
 export default function PaymentModal({ isOpen, onClose, bikeData, user, onSuccess, lang }) {
   // Navigation Steps Controller ('details' or 'payment')
   const [activeStep, setActiveStep] = useState('details');
 
-  const [rateType, setRateType] = useState('hrs24'); 
+  const [rateType, setRateType] = useState('hrs24');
   const [duration, setDuration] = useState(1);
   const [gateway, setGateway] = useState('GCash');
-  
+
   // Payment Structure Options ('Full Payment', 'Down Payment (50%)', or 'Custom Reservation Fee')
-  const [paymentType, setPaymentType] = useState('Full Payment'); 
+  const [paymentType, setPaymentType] = useState('Full Payment');
   const [customAmount, setCustomAmount] = useState(150); // Default custom down payment initial value
-  
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  
+  const [successMessage, setSuccessMessage] = useState('');
+
   // Storage bucket file upload state
   const [selectedFile, setSelectedFile] = useState(null);
 
   useEffect(() => {
     if (isOpen) {
-      setActiveStep('details'); 
+      setActiveStep('details');
       setRateType('hrs24');
       setDuration(1);
       setGateway('GCash');
       setPaymentType('Full Payment');
       setCustomAmount(150);
       setErrorMessage('');
+      setSuccessMessage('');
       setIsSubmitting(false);
-      setSelectedFile(null); 
+      setSelectedFile(null);
     }
   }, [isOpen, bikeData]);
 
@@ -37,58 +42,15 @@ export default function PaymentModal({ isOpen, onClose, bikeData, user, onSucces
   if (!isOpen) return null;
   if (!bikeData) return null;
 
-  // 💰 UPDATED PRICING MATRIX HANDLER
+  // 💰 PRICING MATRIX HANDLER — reads straight from the motor's own DB record
+  // (rate_24hr / rate_12hr / rate_6hr / rate_1hr), set by the admin in Fleet Management.
   const getStaticPriceByRateType = (type) => {
-    const motorName = (bikeData.name || bikeData.pangalan || '').toLowerCase().trim();
-    
-    // NMAX V3 Pricing
-    if (motorName.includes('nmax')) {
-      switch (type) {
-        case 'hrs24': return 800;
-        case 'hrs12': return 600;
-        case 'hrs6':  return 400;
-        case 'hr':    return 100;
-        default:      return 800;
-      }
-    }
-    // AEROX V3 Pricing
-    else if (motorName.includes('aerox')) {
-      switch (type) {
-        case 'hrs24': return 750;
-        case 'hrs12': return 550;
-        case 'hrs6':  return 400;
-        case 'hr':    return 100;
-        default:      return 750;
-      }
-    }
-    // FAZZIO & CLICK 125 Pricing
-    else if (motorName.includes('fazzio') || motorName.includes('click')) {
-      switch (type) {
-        case 'hrs24': return 650;
-        case 'hrs12': return 450;
-        case 'hrs6':  return 300;
-        case 'hr':    return 75;
-        default:      return 650;
-      }
-    }
-    // MIO I 125 & BEAT Pricing
-    else if (motorName.includes('mio') || motorName.includes('beat')) {
-      switch (type) {
-        case 'hrs24': return 600;
-        case 'hrs12': return 400;
-        case 'hrs6':  return 275;
-        case 'hr':    return 70;
-        default:      return 600;
-      }
-    }
-    
-    // Default fallback (Kung may bagong motor na hindi naka-lista sa itaas)
     switch (type) {
-      case 'hrs24': return bikeData.price || 600;
-      case 'hrs12': return 400;
-      case 'hrs6':  return 275;
-      case 'hr':    return 70;
-      default:      return 600;
+      case 'hrs24': return Number(bikeData.rate_24hr) || 0;
+      case 'hrs12': return Number(bikeData.rate_12hr) || 0;
+      case 'hrs6':  return Number(bikeData.rate_6hr) || 0;
+      case 'hr':    return Number(bikeData.rate_1hr) || 0;
+      default:      return Number(bikeData.rate_24hr) || 0;
     }
   };
 
@@ -103,10 +65,10 @@ export default function PaymentModal({ isOpen, onClose, bikeData, user, onSucces
     if (paymentType === 'Down Payment (50%)') {
       amountToPayNow = grandTotal * 0.5;
     } else if (paymentType === 'Custom Reservation Fee') {
-      amountToPayNow = Math.min(Number(customAmount) || 0, grandTotal); 
+      amountToPayNow = Math.min(Number(customAmount) || 0, grandTotal);
     }
   }
-  
+
   const balanceDueUponPickup = gateway === 'Cash' ? 0 : Math.max(0, grandTotal - amountToPayNow);
 
   // STORAGE UPLOAD HANDLER ROUTINE (Para sa mga resibo ng GCash/Maya)
@@ -114,17 +76,17 @@ export default function PaymentModal({ isOpen, onClose, bikeData, user, onSucces
     if (!fileObject) return null;
     const fileExtension = fileObject.name.split('.').pop();
     const fileUniqueName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExtension}`;
-    
+
     const { data, error } = await supabase.storage
       .from('resibo')
       .upload(fileUniqueName, fileObject);
-      
+
     if (error) throw error;
-    
+
     const { data: publicUrlData } = supabase.storage
       .from('resibo')
       .getPublicUrl(fileUniqueName);
-      
+
     return publicUrlData?.publicUrl || null;
   };
 
@@ -144,6 +106,22 @@ export default function PaymentModal({ isOpen, onClose, bikeData, user, onSucces
         throw new Error('Please log in first before renting a motorcycle.');
       }
 
+      // SELF-HEALING GUARD: kung may account (auth) pero walang client profile
+      // row (hal. na-interrupt ang signup dati), gawa muna ng minimal profile
+      // bago mag-insert ng booking, para hindi ma-block ng foreign key sa checkout.
+      const { data: existingClient } = await supabase.from('clients').select('id').eq('id', activeUserId).maybeSingle();
+      if (!existingClient) {
+        const { data: authUserData } = await supabase.auth.getUser();
+        const meta = authUserData?.user?.user_metadata || {};
+        await supabase.from('clients').insert([{
+          id: activeUserId,
+          full_name: meta.full_name || meta.display_name || '',
+          username: meta.username || (authUserData?.user?.email || '').split('@')[0] || `user_${activeUserId.slice(0, 8)}`,
+          email: authUserData?.user?.email || '',
+          created_at: new Date().toISOString()
+        }]);
+      }
+
       // Input Security Protection Check Rules
       if (gateway !== 'Cash' && paymentType === 'Custom Reservation Fee' && amountToPayNow <= 0) {
         throw new Error('Desired custom amount must be greater than ₱0.');
@@ -158,42 +136,42 @@ export default function PaymentModal({ isOpen, onClose, bikeData, user, onSucces
         finalReceiptUrl = await uploadReceiptToBucket(selectedFile);
       }
 
-      const uriLabel = rateType === 'hrs24' ? '24 Hours Deal' : 
-                       rateType === 'hrs12' ? '12 Hours Half-Day' : 
+      const uriLabel = rateType === 'hrs24' ? '24 Hours Deal' :
+                       rateType === 'hrs12' ? '12 Hours Half-Day' :
                        rateType === 'hrs6'  ? '6 Hours Quick Deal' : 'Per Hour Rate';
 
-      // Swak sa Database Schema (mga_arkila)
+      // Swak sa Database Schema (bookings)
       const bookingPayload = {
-        user_id: activeUserId,
-        kliyente_id: activeUserId,
-        paraan_ng_pagbayad: gateway,
-        uri_ng_arkila: uriLabel,
-        tagal_ng_arkila: safeDuration,
+        client_id: activeUserId,
+        payment_method: gateway,
+        rental_package: uriLabel,
+        rental_units: safeDuration,
         status: 'Pending',
-        status_ng_renta: 'Pending',
-        pangalan_ng_motor: bikeData.name || bikeData.pangalan || 'Motorcycle',
-        kabuuang_bayad: grandTotal,
-        resibo_url: finalReceiptUrl,
+        motorcycle_name: bikeData.name || 'Motorcycle',
+        total_amount: grandTotal,
+        receipt_url: finalReceiptUrl,
         created_at: new Date().toISOString(),
         payment_type: gateway === 'Cash' ? 'Cash Basis' : paymentType,
         balance_due: balanceDueUponPickup
       };
 
-      const { error } = await supabase.from('mga_arkila').insert([bookingPayload]);
+      const { error } = await supabase.from('bookings').insert([bookingPayload]);
       if (error) throw error;
 
-      alert(lang === 'en' ? 'Thank you! Your booking request has been submitted successfully. Please complete your registration profile by uploading your valid Government ID / License now.' : 'Salamat! Ang iyong booking ay matagumpay na naipadala. Mangyaring kumpletuhin ang iyong veripikasyon sa pamamagitan ng pag-upload ng iyong Gov ID / Lisensya ngayon.');
-      
-      // SAFETY CHECKER PARA HINDI MAG-BLANK SCREEN!
-      if (typeof onSuccess === 'function') {
-        onSuccess();
-      } else {
-        console.warn("Wala o hindi function ang onSuccess prop.");
-      }
-      
-      if (typeof onClose === 'function') {
-        onClose();
-      }
+      setSuccessMessage(lang === 'en' ? 'Thank you! Your booking request has been submitted successfully. Please complete your registration profile by uploading your valid Government ID / License now.' : 'Salamat! Ang iyong booking ay matagumpay na naipadala. Mangyaring kumpletuhin ang iyong veripikasyon sa pamamagitan ng pag-upload ng iyong Gov ID / Lisensya ngayon.');
+
+      setTimeout(() => {
+        // SAFETY CHECKER PARA HINDI MAG-BLANK SCREEN!
+        if (typeof onSuccess === 'function') {
+          onSuccess();
+        } else {
+          console.warn("Wala o hindi function ang onSuccess prop.");
+        }
+
+        if (typeof onClose === 'function') {
+          onClose();
+        }
+      }, 1800);
 
     } catch (err) {
       console.error(err);
@@ -204,33 +182,39 @@ export default function PaymentModal({ isOpen, onClose, bikeData, user, onSucces
   };
 
   return (
-    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(15, 23, 42, 0.85)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '1rem' }}>
-      <div style={{ backgroundColor: '#151c29', border: '2px solid rgba(234, 169, 116, 0.5)', borderRadius: '24px', width: '100%', maxWidth: '460px', padding: '2rem 1.75rem', position: 'relative', boxSizing: 'border-box', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 40px rgba(234, 169, 116, 0.1)', maxHeight: '90vh', overflowY: 'auto' }}>
-        
-        <button onClick={onClose} style={{ position: 'absolute', top: '20px', right: '20px', background: 'none', border: 'none', color: '#94a3b8', fontSize: '1.4rem', cursor: 'pointer' }}>✕</button>
+    <div className="fixed inset-0 bg-[rgba(15,23,42,0.85)] backdrop-blur-md flex items-center justify-center z-[9999] p-4">
+      <div className="bg-brand-bg/95 backdrop-blur-xl border-2 border-brand-primary/40 rounded-3xl w-full max-w-[460px] p-7 sm:p-8 relative box-border shadow-[0_0_0_1px_rgba(234,169,116,0.04),0_25px_50px_-12px_rgba(0,0,0,0.6),0_0_60px_-15px_rgba(234,169,116,0.15)] max-h-[90vh] overflow-y-auto animate-[fadeInEffect_0.25s_ease-out]">
 
-        <h3 style={{ margin: '0 0 4px 0', fontSize: '1.4rem', color: '#ffffff', fontWeight: '800' }}> Secure Rental Checkout </h3>
-        <p style={{ margin: '0 0 1.5rem 0', color: '#94a3b8', fontSize: '0.85rem' }}>
-          Unit Selected: <span style={{ color: '#eaa974', fontWeight: '700' }}>{bikeData.name || bikeData.pangalan}</span>
+        <button onClick={onClose} className="absolute top-5 right-5 bg-none border-none text-brand-muted text-2xl cursor-pointer hover:text-white transition-colors">✕</button>
+
+        <h3 className="font-display m-0 mb-1 text-2xl text-white font-bold"> Secure Rental Checkout </h3>
+        <p className="m-0 mb-6 text-brand-muted text-sm">
+          Unit Selected: <span className="text-brand-primary font-bold">{bikeData.name}</span>
         </p>
 
-        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
-          <div style={{ flex: 1, height: '4px', borderRadius: '2px', backgroundColor: '#eaa974' }}></div>
-          <div style={{ flex: 1, height: '4px', borderRadius: '2px', backgroundColor: activeStep === 'payment' ? '#eaa974' : 'rgba(255,255,255,0.1)' }}></div>
+        <div className="flex gap-2 mb-6">
+          <div className="flex-1 h-1 rounded-full bg-brand-primary"></div>
+          <div className={`flex-1 h-1 rounded-full ${activeStep === 'payment' ? 'bg-brand-primary' : 'bg-white/10'}`}></div>
         </div>
 
         {errorMessage && (
-          <div style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid #ef4444', color: '#f87171', padding: '10px', borderRadius: '8px', fontSize: '0.8rem', marginBottom: '1rem', wordBreak: 'break-word' }}>
+          <div className="bg-red-500/10 border border-red-500 text-red-400 p-2.5 rounded-lg text-[0.8rem] mb-4 break-words">
             {errorMessage}
           </div>
         )}
 
+        {successMessage && (
+          <div className="bg-emerald-500/10 border border-emerald-500 text-emerald-400 p-2.5 rounded-lg text-[0.8rem] mb-4 break-words">
+            {successMessage}
+          </div>
+        )}
+
         {activeStep === 'details' ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-            
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <label style={{ fontSize: '0.8rem', color: '#cbd5e1', fontWeight: '600' }}>Select Rate Option:</label>
-              <select value={rateType} onChange={(e) => setRateType(e.target.value)} style={{ width: '100%', backgroundColor: 'rgba(30, 41, 59, 0.5)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '12px', padding: '12px', color: '#ffffff', fontSize: '0.9rem', outline: 'none' }}>
+          <div className="flex flex-col gap-5">
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[0.8rem] text-slate-300 font-semibold">Select Rate Option:</label>
+              <select value={rateType} onChange={(e) => setRateType(e.target.value)} className={selectClass}>
                 <option value="hrs24">24 Hours Deal (₱{getStaticPriceByRateType('hrs24')})</option>
                 <option value="hrs12">12 Hours Half-Day (₱{getStaticPriceByRateType('hrs12')})</option>
                 <option value="hrs6">6 Hours Quick Deal (₱{getStaticPriceByRateType('hrs6')})</option>
@@ -238,25 +222,25 @@ export default function PaymentModal({ isOpen, onClose, bikeData, user, onSucces
               </select>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <label style={{ fontSize: '0.8rem', color: '#cbd5e1', fontWeight: '600' }}>Duration multiplier: <span style={{ color: '#eaa974' }}>{duration}x</span></label>
-              <input 
-                type="number" 
-                min="1" 
-                max="30" 
-                value={duration === 0 ? '' : duration} 
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[0.8rem] text-slate-300 font-semibold">Duration multiplier: <span className="text-brand-primary">{duration}x</span></label>
+              <input
+                type="number"
+                min="1"
+                max="30"
+                value={duration === 0 ? '' : duration}
                 onChange={(e) => {
                   const val = e.target.value;
                   if (val === '') setDuration(0);
                   else setDuration(Math.max(0, parseInt(val) || 0));
-                }} 
-                style={{ backgroundColor: 'rgba(30, 41, 59, 0.5)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '12px', padding: '12px', color: '#ffffff', outline: 'none' }} 
+                }}
+                className={numberInputClass}
               />
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <label style={{ fontSize: '0.8rem', color: '#cbd5e1', fontWeight: '600' }}>Payment Channel Method:</label>
-              <select value={gateway} onChange={(e) => setGateway(e.target.value)} style={{ width: '100%', backgroundColor: 'rgba(30, 41, 59, 0.5)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '12px', padding: '12px', color: '#ffffff', outline: 'none' }}>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[0.8rem] text-slate-300 font-semibold">Payment Channel Method:</label>
+              <select value={gateway} onChange={(e) => setGateway(e.target.value)} className={selectClass}>
                 <option value="GCash">GCash Instant Transfer</option>
                 <option value="Maya">Maya Wallet Gateway</option>
                 <option value="Cash">Over the Counter / Cash upon Pickup</option>
@@ -264,9 +248,9 @@ export default function PaymentModal({ isOpen, onClose, bikeData, user, onSucces
             </div>
 
             {gateway !== 'Cash' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <label style={{ fontSize: '0.8rem', color: '#cbd5e1', fontWeight: '600' }}>Payment Option Structure:</label>
-                <select value={paymentType} onChange={(e) => setPaymentType(e.target.value)} style={{ width: '100%', backgroundColor: 'rgba(30, 41, 59, 0.5)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '12px', padding: '12px', color: '#ffffff', fontSize: '0.9rem', outline: 'none' }}>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[0.8rem] text-slate-300 font-semibold">Payment Option Structure:</label>
+                <select value={paymentType} onChange={(e) => setPaymentType(e.target.value)} className={selectClass}>
                   <option value="Full Payment">Pay Full Amount Upfront (100%)</option>
                   <option value="Down Payment (50%)">Secure via Down Payment (50%)</option>
                   <option value="Custom Reservation Fee">Custom Reservation / Down Payment Amount</option>
@@ -275,101 +259,94 @@ export default function PaymentModal({ isOpen, onClose, bikeData, user, onSucces
             )}
 
             {gateway !== 'Cash' && paymentType === 'Custom Reservation Fee' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <label style={{ fontSize: '0.8rem', color: '#eaa974', fontWeight: '700' }}>Your Desired Deposit Amount (₱):</label>
-                <input 
-                  type="number" 
-                  min="50" 
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[0.8rem] text-brand-primary font-bold">Your Desired Deposit Amount (₱):</label>
+                <input
+                  type="number"
+                  min="50"
                   max={grandTotal}
-                  value={customAmount === 0 ? '' : customAmount} 
+                  value={customAmount === 0 ? '' : customAmount}
                   onChange={(e) => {
                     const val = e.target.value;
                     if (val === '') setCustomAmount(0);
                     else setCustomAmount(Math.max(0, parseInt(val) || 0));
-                  }} 
-                  style={{ backgroundColor: 'rgba(30, 41, 59, 0.75)', border: '1px solid #eaa974', borderRadius: '12px', padding: '12px', color: '#ffffff', fontWeight: '700', outline: 'none' }} 
+                  }}
+                  className="bg-brand-surface/75 border border-brand-primary rounded-xl p-3 text-white font-bold outline-none"
                 />
               </div>
             )}
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', paddingTop: '1rem', borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '0.9rem', color: '#94a3b8', fontWeight: '600' }}>Total Contract Value:</span>
-                <span style={{ fontSize: '1.2rem', color: '#ffffff', fontWeight: '700' }}>₱{grandTotal}</span>
+            <div className="flex flex-col gap-1.5 pt-4 border-t border-white/[0.08]">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-brand-muted font-semibold">Total Contract Value:</span>
+                <span className="text-xl text-white font-bold">₱{grandTotal}</span>
               </div>
               {gateway !== 'Cash' && paymentType !== 'Full Payment' && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '0.9rem', color: '#eaa974', fontWeight: '700' }}>Initial Deposit Due Now:</span>
-                  <span style={{ fontSize: '1.4rem', color: '#eaa974', fontWeight: '900' }}>₱{amountToPayNow}</span>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-brand-primary font-bold">Initial Deposit Due Now:</span>
+                  <span className="text-2xl text-brand-primary font-black">₱{amountToPayNow}</span>
                 </div>
               )}
             </div>
 
             <button
               onClick={() => setActiveStep('payment')}
-              style={{ backgroundColor: '#eaa974', color: '#151c29', border: 'none', padding: '14px', borderRadius: '12px', fontWeight: '800', fontSize: '1rem', cursor: 'pointer' }}
+              className="btn-primary py-3.5 text-base"
             >
               Proceed to Payment →
             </button>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-            
+          <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+
             {gateway !== 'Cash' ? (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', backgroundColor: 'rgba(255,255,255,0.02)', padding: '15px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                <span style={{ fontSize: '0.85rem', color: '#eaa974', fontWeight: '800', letterSpacing: '0.5px' }}>
+              <div className="flex flex-col items-center gap-2.5 bg-white/[0.02] p-4 rounded-2xl border border-white/5">
+                <span className="text-[0.85rem] text-brand-primary font-extrabold tracking-wide">
                   SCAN TO PAY VIA {gateway.toUpperCase()}
                 </span>
-                
-                <div style={{ 
-                  width: '180px', height: '180px', 
-                  backgroundColor: '#ffffff', borderRadius: '16px',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
-                  overflow: 'hidden'
-                }}>
-                  <img 
-                    src={gateway.toLowerCase() === 'maya' ? '/maya-qr.jpg' : '/gcash-qr.jpg'} 
+
+                <div className="w-[180px] h-[180px] bg-white rounded-2xl flex items-center justify-center shadow-[0_10px_25px_rgba(0,0,0,0.5)] overflow-hidden">
+                  <img
+                    src={gateway.toLowerCase() === 'maya' ? '/maya-qr.jpg' : '/gcash-qr.jpg'}
                     alt={`${gateway} QR code`}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    className="w-full h-full object-cover"
                   />
                 </div>
 
-                <p style={{ margin: '4px 0 0 0', fontSize: '0.78rem', color: '#94a3b8', textAlign: 'center' }}>
-                  Please send exactly <strong style={{ color: '#ffffff' }}>₱{amountToPayNow}</strong>.
+                <p className="mt-1 mb-0 text-[0.78rem] text-brand-muted text-center">
+                  Please send exactly <strong className="text-white">₱{amountToPayNow}</strong>.
                 </p>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%', marginTop: '10px', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '12px' }}>
-                  <label style={{ fontSize: '0.8rem', color: '#cbd5e1', fontWeight: '700' }}>Attach Proof of Payment (Image File):</label>
-                  <input type="file" accept="image/*" required onChange={(e) => setSelectedFile(e.target.files[0] || null)} style={{ color: '#cbd5e1', fontSize: '0.8rem' }} />
+                <div className="flex flex-col gap-1.5 w-full mt-2.5 border-t border-white/[0.08] pt-3">
+                  <label className="text-[0.8rem] text-slate-300 font-bold">Attach Proof of Payment (Image File):</label>
+                  <input type="file" accept="image/*" required onChange={(e) => setSelectedFile(e.target.files[0] || null)} className="text-slate-300 text-[0.8rem] file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-brand-primary file:text-brand-bg file:font-bold file:cursor-pointer" />
                 </div>
               </div>
             ) : (
-              <div style={{ backgroundColor: 'rgba(234, 169, 116, 0.05)', padding: '20px', borderRadius: '16px', border: '1px dashed rgba(234, 169, 116, 0.3)', textAlign: 'center' }}>
-                <span style={{ fontSize: '1.2rem', display: 'block', marginBottom: '8px' }}>🤝</span>
-                <span style={{ fontSize: '0.9rem', color: '#eaa974', fontWeight: '700', display: 'block' }}>Over-the-Counter Cash Mode</span>
-                <p style={{ margin: '6px 0 0 0', fontSize: '0.8rem', color: '#cbd5e1', lineHeight: '1.4' }}>
+              <div className="bg-brand-primary/5 p-5 rounded-2xl border border-dashed border-brand-primary/30 text-center">
+                <span className="text-xl block mb-2">🤝</span>
+                <span className="text-sm text-brand-primary font-bold block">Over-the-Counter Cash Mode</span>
+                <p className="mt-1.5 mb-0 text-[0.8rem] text-slate-300 leading-normal">
                   No reference upload required. You may finalize your booking right away and clear payment directly at our counter upon unit pickup!
                 </p>
               </div>
             )}
 
-            <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
+            <div className="flex gap-3 mt-2">
               <button
                 type="button"
                 onClick={() => setActiveStep('details')}
-                style={{ flex: 1, backgroundColor: 'transparent', border: '1px solid rgba(255,255,255,0.2)', color: '#ffffff', padding: '14px', borderRadius: '12px', fontWeight: '700', cursor: 'pointer' }}
+                className="flex-1 bg-transparent border border-white/20 text-white py-3.5 rounded-xl font-bold cursor-pointer hover:bg-white/5 transition-colors"
               >
                 ← Back
               </button>
-              
+
               <button
                 type="submit"
                 disabled={isSubmitting}
-                style={{
-                  flex: 2, backgroundColor: isSubmitting ? '#334155' : '#eaa974', color: isSubmitting ? '#94a3b8' : '#151c29',
-                  border: 'none', padding: '14px', borderRadius: '12px', fontWeight: '800', cursor: isSubmitting ? 'not-allowed' : 'pointer'
-                }}
+                className={`flex-[2] border-none py-3.5 rounded-xl font-bold ${
+                  isSubmitting ? 'bg-slate-700 text-brand-muted cursor-not-allowed' : 'btn-primary cursor-pointer'
+                }`}
               >
                 {isSubmitting ? 'Processing Transaction...' : 'Confirm Book & Dispatch'}
               </button>
