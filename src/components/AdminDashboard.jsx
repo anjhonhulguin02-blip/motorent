@@ -416,7 +416,7 @@ export default function AdminDashboard({ onStatusUpdate, lang }) {
       </div>
 
       {/* PRIMARY NAVIGATION — which section of the admin panel */}
-      <div className="w-full max-w-[1200px] border-b border-white/10 mb-6 flex gap-2 sm:gap-6 overflow-x-auto">
+      <div className="w-full max-w-[1200px] border-b border-white/10 mb-6 flex gap-2 sm:gap-6">
         <button
           onClick={() => setMainView('bookings')}
           className={`shrink-0 px-2 sm:px-1 pb-3 -mb-px border-b-2 text-sm sm:text-base font-bold cursor-pointer transition-colors whitespace-nowrap ${
