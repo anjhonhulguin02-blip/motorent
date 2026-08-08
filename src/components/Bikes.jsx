@@ -60,7 +60,10 @@ export default function Bikes({ onRentClick, activeRentals = [] }) {
 
       const mayResiboNa = !!rental.has_receipt;
       const isSameBike = rentalBikeName === currentBikeName;
-      const isOngoing = !['completed', 'ended', 'cancelled', 'rejected'].includes(rentalStatus);
+      // Whitelist ng aktibong status, hindi blacklist ng tapos na — para
+      // hindi awtomatikong mag-lock ang bike sa hindi kilala/lumang status
+      // values (hal. "Archived" mula sa lumang data) na hindi pa naisip.
+      const isOngoing = ['pending', 'pending verification', 'approved', 'picked up', 'active', 'rented'].includes(rentalStatus);
       const isLockedStatus = ['picked up', 'approved', 'active', 'rented'].includes(rentalStatus);
       const dapatIlock = isOngoing && (mayResiboNa || isLockedStatus);
 
