@@ -4,6 +4,7 @@ import mainWebsiteBg from '../assets/BG.png';
 import AdminFleetManager from './AdminFleetManager';
 import Toast from './Toast';
 import ConfirmDialog from './ConfirmDialog';
+import useEscapeToClose from '../hooks/useEscapeToClose';
 
 // 🏍️ IMPORT MGA PICTURES NG MOTOR
 import nmaxImg from '../assets/Bikes/nmaxv3.jpg';
@@ -37,7 +38,11 @@ export default function AdminDashboard({ onStatusUpdate, lang }) {
   const [loading, setLoading] = useState(true);
   const [currentTab, setCurrentTab] = useState('active');
   const [selectedProofImg, setSelectedProofImg] = useState(null);
+  useEscapeToClose(!!selectedProofImg, () => setSelectedProofImg(null));
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const BOOKINGS_PER_PAGE = 12;
 
   const [hiddenHistoryIds, setHiddenHistoryIds] = useState(() => {
     try {
@@ -299,13 +304,33 @@ export default function AdminDashboard({ onStatusUpdate, lang }) {
     }
   };
 
-  const handleProofClick = (url) => {
-    if (!url) return;
-    if (url.startsWith('http')) {
-      setSelectedProofImg(url);
-    } else {
-      setToast({ type: 'success', message: "Reference text: " + url });
+  // Private na ngayon ang mga bucket na ito (gov ID / resibo), kaya signed
+  // URL na lang ang tanging paraan para makita ito — hindi na basta
+  // getPublicUrl. Sinusuportahan pa rin ang mga lumang row na naka-save ang
+  // buong public URL bago nag-lockdown (extractStoragePath).
+  const extractStoragePath = (bucket, value) => {
+    if (!value) return null;
+    if (value.startsWith('http')) {
+      const marker = `/object/public/${bucket}/`;
+      const idx = value.indexOf(marker);
+      if (idx === -1) return null;
+      return decodeURIComponent(value.slice(idx + marker.length));
     }
+    return value;
+  };
+
+  const handleProofClick = async (bucket, value) => {
+    const path = extractStoragePath(bucket, value);
+    if (!path) {
+      setToast({ type: 'error', message: "File not found." });
+      return;
+    }
+    const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, 300);
+    if (error || !data?.signedUrl) {
+      setToast({ type: 'error', message: "Could not load file." });
+      return;
+    }
+    setSelectedProofImg(data.signedUrl);
   };
 
   const getBikeImage = (bikeName) => {
@@ -325,12 +350,38 @@ export default function AdminDashboard({ onStatusUpdate, lang }) {
     if (hiddenHistoryIds.includes(b.id)) return false;
 
     const st = b.status || 'Pending';
-    if (currentTab === 'active') {
-      return st === 'Pending' || st === 'Approved' || st === 'Picked Up' || st === 'Pending Verification';
-    } else {
-      return st === 'Completed' || st === 'Rejected' || st === 'Cancelled';
-    }
+    const matchesTab = currentTab === 'active'
+      ? (st === 'Pending' || st === 'Approved' || st === 'Picked Up' || st === 'Pending Verification')
+      : (st === 'Completed' || st === 'Rejected' || st === 'Cancelled');
+    if (!matchesTab) return false;
+
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return true;
+
+    const refId = String(b.id || '').substring(0, 8).toLowerCase();
+    const haystack = [
+      b.motorcycle_name,
+      b.client_info?.full_name,
+      b.client_info?.email,
+      refId
+    ].filter(Boolean).join(' ').toLowerCase();
+
+    return haystack.includes(q);
   });
+
+  const totalPages = Math.max(1, Math.ceil(visibleBookings.length / BOOKINGS_PER_PAGE));
+  const pagedBookings = visibleBookings.slice(
+    (currentPage - 1) * BOOKINGS_PER_PAGE,
+    currentPage * BOOKINGS_PER_PAGE
+  );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, currentTab, mainView]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages);
+  }, [totalPages, currentPage]);
 
   if (loading) {
     return (
@@ -407,16 +458,34 @@ export default function AdminDashboard({ onStatusUpdate, lang }) {
         >
           History
         </button>
+
+        <div className="relative ml-auto w-full sm:w-64">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search by client, motor, or ref ID..."
+            className="w-full px-3.5 py-1.5 bg-[#0e1424] text-white text-xs border border-white/10 rounded-full outline-none focus:border-blue-500/50 transition-colors placeholder:text-slate-500"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white text-xs font-bold cursor-pointer"
+            >
+              ✕
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="w-full max-w-[1200px]">
         {visibleBookings.length === 0 ? (
           <div className="p-12 text-center text-slate-500 text-sm italic bg-[rgba(10,17,32,0.75)] backdrop-blur-md border border-white/5 rounded-[20px]">
-            No records found for this category.
+            {searchQuery ? `No bookings match "${searchQuery}".` : 'No records found for this category.'}
           </div>
         ) : (
           <div className={bookingGridClass}>
-            {visibleBookings.map((booking) => {
+            {pagedBookings.map((booking) => {
               if (!booking) return null;
 
               const status = booking.status || 'Pending';
@@ -686,7 +755,7 @@ export default function AdminDashboard({ onStatusUpdate, lang }) {
 
                     <div className="flex gap-2 mb-2 flex-wrap">
                       {booking.government_id_url ? (
-                        <button onClick={() => handleProofClick(booking.government_id_url)} className={proofButtonClass}>
+                        <button onClick={() => handleProofClick('mga_id_bucket', booking.government_id_url)} className={proofButtonClass}>
                           📸 View Gov ID
                         </button>
                       ) : (
@@ -694,7 +763,7 @@ export default function AdminDashboard({ onStatusUpdate, lang }) {
                       )}
 
                       {booking.receipt_url ? (
-                        <button onClick={() => handleProofClick(booking.receipt_url)} className={proofButtonClass}>
+                        <button onClick={() => handleProofClick('resibo', booking.receipt_url)} className={proofButtonClass}>
                           🧾 View Receipt
                         </button>
                       ) : (
@@ -703,7 +772,7 @@ export default function AdminDashboard({ onStatusUpdate, lang }) {
 
                       {isExtended && extBaseMode !== 'Cash' ? (
                         booking.extension_receipt_url ? (
-                          <button onClick={() => handleProofClick(booking.extension_receipt_url)} className={extProofButtonClass}>
+                          <button onClick={() => handleProofClick('resibo_extension', booking.extension_receipt_url)} className={extProofButtonClass}>
                             🧾 Ext. Receipt
                           </button>
                         ) : (
@@ -782,6 +851,28 @@ export default function AdminDashboard({ onStatusUpdate, lang }) {
             })}
           </div>
         )}
+
+        {totalPages > 1 && (
+          <div className="flex justify-center items-center gap-3 mt-8">
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="px-4 py-2 rounded-lg text-xs font-bold bg-white/5 text-white border border-white/10 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              ← Prev
+            </button>
+            <span className="text-xs text-brand-muted font-semibold">
+              Page {currentPage} of {totalPages}
+            </span>
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="px-4 py-2 rounded-lg text-xs font-bold bg-white/5 text-white border border-white/10 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              Next →
+            </button>
+          </div>
+        )}
       </div>
       </>
       )}
@@ -789,6 +880,9 @@ export default function AdminDashboard({ onStatusUpdate, lang }) {
       {selectedProofImg && (
         <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-[100000] flex justify-center items-center p-5" onClick={() => setSelectedProofImg(null)}>
           <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Verification document"
             className="bg-slate-900/95 backdrop-blur-xl border border-blue-500/15 rounded-3xl overflow-hidden w-full max-w-[600px] flex flex-col shadow-[0_0_0_1px_rgba(59,130,246,0.05),0_30px_60px_-15px_rgba(0,0,0,0.85),0_0_60px_-20px_rgba(59,130,246,0.12)] animate-[fadeInEffect_0.25s_ease-out]"
             onClick={(e) => e.stopPropagation()}
           >

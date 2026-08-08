@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import Toast from './Toast';
 import ConfirmDialog from './ConfirmDialog';
+import useEscapeToClose from '../hooks/useEscapeToClose';
 
 // 🏍️ Local fallback photos — used only for motors that don't have an
 // admin-uploaded image_url yet (the 6 original launch units).
@@ -31,7 +32,11 @@ const emptyForm = {
   rate_12hr: '',
   rate_6hr: '',
   rate_1hr: '',
-  status: 'Available'
+  status: 'Available',
+  engine_size: '',
+  transmission: '',
+  fuel_capacity: '',
+  weight: ''
 };
 
 const fieldLabelClass = "text-[0.8rem] text-slate-300 font-semibold block mb-1.5";
@@ -90,7 +95,11 @@ export default function AdminFleetManager() {
       rate_12hr: motor.rate_12hr ?? '',
       rate_6hr: motor.rate_6hr ?? '',
       rate_1hr: motor.rate_1hr ?? '',
-      status: motor.status || 'Available'
+      status: motor.status || 'Available',
+      engine_size: motor.engine_size || '',
+      transmission: motor.transmission || '',
+      fuel_capacity: motor.fuel_capacity || '',
+      weight: motor.weight || ''
     });
     setImageFile(null);
     setImagePreview(motor.image_url || getFallbackImage(motor.name));
@@ -102,6 +111,8 @@ export default function AdminFleetManager() {
     setShowForm(false);
     setEditingId(null);
   };
+
+  useEscapeToClose(showForm, closeForm);
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
@@ -145,7 +156,11 @@ export default function AdminFleetManager() {
         rate_12hr: Number(form.rate_12hr),
         rate_6hr: Number(form.rate_6hr),
         rate_1hr: Number(form.rate_1hr),
-        status: form.status
+        status: form.status,
+        engine_size: form.engine_size.trim() || null,
+        transmission: form.transmission.trim() || null,
+        fuel_capacity: form.fuel_capacity.trim() || null,
+        weight: form.weight.trim() || null
       };
       if (imageUrl !== undefined) payload.image_url = imageUrl;
 
@@ -299,13 +314,16 @@ export default function AdminFleetManager() {
         <div className="fixed inset-0 bg-[rgba(5,8,16,0.85)] backdrop-blur-md flex justify-center items-center z-[9999] p-4" onClick={closeForm}>
           <div
             onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label={editingId ? 'Edit motorcycle' : 'Add new motorcycle'}
             className="bg-brand-card/95 backdrop-blur-xl border border-blue-500/15 rounded-3xl p-8 w-full max-w-[520px] max-h-[90vh] overflow-y-auto box-border shadow-[0_0_0_1px_rgba(59,130,246,0.04),0_30px_60px_rgba(0,0,0,0.6)] animate-[fadeInEffect_0.25s_ease-out]"
           >
             <div className="flex justify-between items-center mb-6">
               <h3 className="font-display text-white text-xl font-bold">
                 {editingId ? 'Edit Motorcycle' : 'Add New Motorcycle'}
               </h3>
-              <button onClick={closeForm} className="bg-transparent border-none text-brand-muted text-2xl cursor-pointer leading-none hover:text-white transition-colors">&times;</button>
+              <button onClick={closeForm} aria-label="Close" className="bg-transparent border-none text-brand-muted text-2xl cursor-pointer leading-none hover:text-white transition-colors">&times;</button>
             </div>
 
             {errorMessage && (
@@ -355,6 +373,28 @@ export default function AdminFleetManager() {
                   <option value="Available">Available</option>
                   <option value="Rented">Rented</option>
                 </select>
+              </div>
+
+              <div>
+                <span className={fieldLabelClass}>Specifications <span className="text-slate-500 font-normal">(optional — leave blank if unknown; the site will show "Contact us for details" instead of guessing)</span></span>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={fieldLabelClass}>Engine</label>
+                    <input type="text" value={form.engine_size} onChange={(e) => setForm({ ...form, engine_size: e.target.value })} placeholder="e.g. 125cc" className={fieldInputClass} />
+                  </div>
+                  <div>
+                    <label className={fieldLabelClass}>Transmission</label>
+                    <input type="text" value={form.transmission} onChange={(e) => setForm({ ...form, transmission: e.target.value })} placeholder="e.g. Automatic" className={fieldInputClass} />
+                  </div>
+                  <div>
+                    <label className={fieldLabelClass}>Fuel Capacity</label>
+                    <input type="text" value={form.fuel_capacity} onChange={(e) => setForm({ ...form, fuel_capacity: e.target.value })} placeholder="e.g. 4.2 L" className={fieldInputClass} />
+                  </div>
+                  <div>
+                    <label className={fieldLabelClass}>Weight</label>
+                    <input type="text" value={form.weight} onChange={(e) => setForm({ ...form, weight: e.target.value })} placeholder="e.g. 98 kg" className={fieldInputClass} />
+                  </div>
+                </div>
               </div>
 
               <div>

@@ -1,15 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
 import Bikes from './components/Bikes';
 import Reviews from './components/Reviews';
 import About from './components/About';
 import Contact from './components/Contact';
-import AuthModal from './components/AuthModal';
-import PaymentModal from './components/PaymentModal';
-import Dashboard from './components/Dashboard';
-import AdminDashboard from './components/AdminDashboard';
+import ConsentBanner from './components/ConsentBanner';
 import { supabase } from './supabaseClient';
+
+// Code-split the account-gated / modal-only screens — none of these are
+// needed for the first paint of the public homepage/catalog, so keeping
+// them out of the main bundle shrinks the JS a first-time visitor pays for.
+const AuthModal = lazy(() => import('./components/AuthModal'));
+const PaymentModal = lazy(() => import('./components/PaymentModal'));
+const Dashboard = lazy(() => import('./components/Dashboard'));
+const AdminDashboard = lazy(() => import('./components/AdminDashboard'));
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('home');
@@ -21,12 +26,7 @@ export default function App() {
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [selectedBikeForRent, setSelectedBikeForRent] = useState(null);
   const [activeRentals, setActiveRentals] = useState([]);
-
-  // Admin Configuration gamit ang iyong totoong email
-  const isAdmin = 
-    user?.email === 'anjhon.hulguin02@gmail.com' || 
-    user?.email?.startsWith('admin') || 
-    user?.email === 'admin@motorent.local';
+  const [isAdmin, setIsAdmin] = useState(false);
 
   // Tiyakin ang User Authentication State mula sa Supabase
   useEffect(() => {
@@ -41,6 +41,28 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Admin status ay galing na sa database (clients.is_admin), hindi na sa
+  // email string lang — ang RLS policies mismo ang tunay na nagbabantay,
+  // pero kailangan din nating malaman dito para itago/ipakita ang tamang UI.
+  useEffect(() => {
+    async function syncAdminFlag() {
+      if (!user) {
+        setIsAdmin(false);
+        return;
+      }
+      const { data, error } = await supabase
+        .from('clients')
+        .select('is_admin')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (!error && data) setIsAdmin(!!data.is_admin);
+      else setIsAdmin(false);
+    }
+
+    syncAdminFlag();
+  }, [user]);
+
   // Sync fleet-wide active bookings — para malaman ng Bikes catalog kung aling
   // motor ang unavailable dahil sa kahit sinong customer's ongoing booking,
   // hindi lang sa booking ng kasalukuyang naka-login na user. Kailangan din
@@ -51,8 +73,8 @@ export default function App() {
     async function fetchFleetActiveBookings() {
       try {
         const { data, error } = await supabase
-          .from('bookings')
-          .select('motorcycle_name, status, receipt_url')
+          .from('booking_activity')
+          .select('motorcycle_name, status, has_receipt')
           .not('status', 'in', '(Completed,Rejected,Cancelled)');
 
         if (!error && data) {
@@ -123,40 +145,56 @@ export default function App() {
 
         {/* USER PROFILE MANAGEMENT PORTAL */}
         {activeTab === 'dashboard' && user && !isAdmin && (
-          <Dashboard user={user} lang={lang} activeTab={activeTab} />
+          <Suspense fallback={<ScreenLoadingFallback />}>
+            <Dashboard user={user} lang={lang} activeTab={activeTab} />
+          </Suspense>
         )}
 
         {/* PRIVILEGED FLEET COMMAND CORE */}
         {activeTab === 'admin' && user && isAdmin && (
-          <AdminDashboard onStatusUpdate={handleStatusUpdate} lang={lang} />
+          <Suspense fallback={<ScreenLoadingFallback />}>
+            <AdminDashboard onStatusUpdate={handleStatusUpdate} lang={lang} />
+          </Suspense>
         )}
       </main>
 
       {/* MODALS ENTRY NODES */}
       <div className="relative z-[100000]">
-        <AuthModal 
-          isOpen={authModalOpen} 
-          onClose={() => {
-            setAuthModalOpen(false);
-            setIsRecoveryMode(false); 
-          }} 
-          onLoginSuccess={() => setAuthModalOpen(false)}
-          lang={lang} 
-          isRecoveryModeInitial={isRecoveryMode} 
-        />
+        <Suspense fallback={null}>
+          <AuthModal
+            isOpen={authModalOpen}
+            onClose={() => {
+              setAuthModalOpen(false);
+              setIsRecoveryMode(false);
+            }}
+            onLoginSuccess={() => setAuthModalOpen(false)}
+            lang={lang}
+            isRecoveryModeInitial={isRecoveryMode}
+          />
 
-        <PaymentModal
-          isOpen={paymentModalOpen}
-          onClose={() => setPaymentModalOpen(false)}
-          bikeData={selectedBikeForRent}
-          user={user}
-          lang={lang}
-          onSuccess={() => {
-            setPaymentModalOpen(false);
-            setActiveTab('dashboard');
-          }}
-        />
+          <PaymentModal
+            isOpen={paymentModalOpen}
+            onClose={() => setPaymentModalOpen(false)}
+            bikeData={selectedBikeForRent}
+            user={user}
+            lang={lang}
+            onSuccess={() => {
+              setPaymentModalOpen(false);
+              setActiveTab('dashboard');
+            }}
+          />
+        </Suspense>
       </div>
+
+      <ConsentBanner lang={lang} />
+    </div>
+  );
+}
+
+function ScreenLoadingFallback() {
+  return (
+    <div className="flex justify-center items-center min-h-[60vh] text-brand-primary font-sans">
+      <div className="text-center tracking-wide font-bold text-sm animate-pulse">LOADING...</div>
     </div>
   );
 }

@@ -82,7 +82,7 @@ export default function Hero({ lang, setActiveTab }) {
 
         const [{ data: motors, error: motorsError }, { data: bookings, error: bookingsError }] = await Promise.all([
           supabase.from('motorcycles').select('*'),
-          supabase.from('bookings').select('motorcycle_name')
+          supabase.from('booking_activity').select('motorcycle_name')
         ]);
 
         if (motorsError) console.error("Supabase Query Error:", motorsError.message);
@@ -192,10 +192,12 @@ export default function Hero({ lang, setActiveTab }) {
               ))}
             </div>
             <div className="absolute bottom-9 right-8 flex gap-2 z-10 items-center">
-              {DESTINATIONS.map((_, index) => (
+              {DESTINATIONS.map((dest, index) => (
                 <button
                   key={index}
                   onClick={() => setCurrentSlide(index)}
+                  aria-label={`Show ${dest.name || `slide ${index + 1}`}`}
+                  aria-current={index === currentSlide}
                   className={`p-0 border-none cursor-pointer h-1.5 rounded-full transition-all duration-400 ${
                     index === currentSlide ? 'w-6 bg-brand-primary shadow-[0_0_12px_#eaa974]' : 'w-1.5 bg-white/20'
                   }`}

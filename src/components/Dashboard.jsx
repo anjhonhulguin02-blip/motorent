@@ -129,13 +129,12 @@ export default function Dashboard({ user, lang, activeTab }) {
 
       if (uploadError) throw uploadError;
 
-      const { data: publicUrlData } = supabase.storage
-        .from('mga_id_bucket')
-        .getPublicUrl(filePath);
-
+      // Itago ang bare storage path lang, hindi ang public URL — private na
+      // ang bucket na ito, kaya sa signed URL (na-generate on-demand) lang
+      // dapat tumingin ang sinuman ng ID na ito.
       const { error: updateError } = await supabase
         .from('bookings')
-        .update({ government_id_url: publicUrlData.publicUrl })
+        .update({ government_id_url: filePath })
         .eq('id', bookingId);
 
       if (updateError) throw updateError;

@@ -17,6 +17,8 @@ export default function Toast({ toast, onDismiss }) {
   return (
     <div
       onClick={onDismiss}
+      role="status"
+      aria-live="polite"
       className={`fixed bottom-6 right-6 left-6 sm:left-auto sm:max-w-[380px] z-[100000] px-5 py-4 rounded-xl border shadow-[0_20px_40px_-10px_rgba(0,0,0,0.6)] backdrop-blur-xl cursor-pointer animate-[fadeInEffect_0.25s_ease-out] ${
         isError
           ? 'bg-red-500/15 border-red-500/40 text-red-300'

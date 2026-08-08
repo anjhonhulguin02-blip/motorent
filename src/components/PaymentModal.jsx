@@ -1,12 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
+import useEscapeToClose from '../hooks/useEscapeToClose';
 
 const selectClass = "w-full bg-brand-surface/50 border border-white/10 rounded-xl p-3 text-white text-[0.9rem] outline-none focus:border-brand-primary/60 transition-colors";
 const numberInputClass = "bg-brand-surface/50 border border-white/10 rounded-xl p-3 text-white outline-none focus:border-brand-primary/60 transition-colors";
+const stepTitleClass = "font-display text-lg text-white font-bold mb-1";
+const stepSubClass = "text-[0.8rem] text-brand-muted mb-5";
+
+const TOTAL_STEPS = 7;
 
 export default function PaymentModal({ isOpen, onClose, bikeData, user, onSuccess, lang }) {
-  // Navigation Steps Controller ('details' or 'payment')
-  const [activeStep, setActiveStep] = useState('details');
+  const [currentStep, setCurrentStep] = useState(1);
 
   const [rateType, setRateType] = useState('hrs24');
   const [duration, setDuration] = useState(1);
@@ -18,25 +22,25 @@ export default function PaymentModal({ isOpen, onClose, bikeData, user, onSucces
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
 
   // Storage bucket file upload state
   const [selectedFile, setSelectedFile] = useState(null);
 
   useEffect(() => {
     if (isOpen) {
-      setActiveStep('details');
+      setCurrentStep(1);
       setRateType('hrs24');
       setDuration(1);
       setGateway('GCash');
       setPaymentType('Full Payment');
       setCustomAmount(150);
       setErrorMessage('');
-      setSuccessMessage('');
       setIsSubmitting(false);
       setSelectedFile(null);
     }
   }, [isOpen, bikeData]);
+
+  useEscapeToClose(isOpen && !!bikeData, onClose);
 
   // SAFETY GUARD 1: Pipigilan nito ang pag-crash ng app kung sakaling delay pumasok ang data ng motor
   if (!isOpen) return null;
@@ -71,27 +75,65 @@ export default function PaymentModal({ isOpen, onClose, bikeData, user, onSucces
 
   const balanceDueUponPickup = gateway === 'Cash' ? 0 : Math.max(0, grandTotal - amountToPayNow);
 
+  const rateLabel = rateType === 'hrs24' ? '24 Hours Deal' :
+                     rateType === 'hrs12' ? '12 Hours Half-Day' :
+                     rateType === 'hrs6'  ? '6 Hours Quick Deal' : 'Per Hour Rate';
+
   // STORAGE UPLOAD HANDLER ROUTINE (Para sa mga resibo ng GCash/Maya)
   const uploadReceiptToBucket = async (fileObject) => {
     if (!fileObject) return null;
     const fileExtension = fileObject.name.split('.').pop();
     const fileUniqueName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExtension}`;
 
-    const { data, error } = await supabase.storage
+    const { error } = await supabase.storage
       .from('resibo')
       .upload(fileUniqueName, fileObject);
 
     if (error) throw error;
 
-    const { data: publicUrlData } = supabase.storage
-      .from('resibo')
-      .getPublicUrl(fileUniqueName);
-
-    return publicUrlData?.publicUrl || null;
+    // Bare storage path lang ang itinatago — private na ang bucket na ito,
+    // signed URL na lang ang gagawin on-demand kapag titingnan ito ni admin.
+    return fileUniqueName;
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const goNext = () => {
+    setErrorMessage('');
+
+    if (currentStep === 2 && safeDuration < 1) {
+      setErrorMessage('Duration must be at least 1.');
+      return;
+    }
+
+    if (currentStep === 4 && gateway !== 'Cash' && paymentType === 'Custom Reservation Fee' && amountToPayNow <= 0) {
+      setErrorMessage('Desired custom amount must be greater than ₱0.');
+      return;
+    }
+
+    if (currentStep === 5 && (gateway === 'GCash' || gateway === 'Maya') && !selectedFile) {
+      setErrorMessage('Please upload a screenshot of your transaction proof of payment.');
+      return;
+    }
+
+    if (currentStep === 3) {
+      setCurrentStep(gateway === 'Cash' ? 5 : 4);
+      return;
+    }
+
+    setCurrentStep((s) => Math.min(TOTAL_STEPS, s + 1));
+  };
+
+  const goBack = () => {
+    setErrorMessage('');
+
+    if (currentStep === 5) {
+      setCurrentStep(gateway === 'Cash' ? 3 : 4);
+      return;
+    }
+
+    setCurrentStep((s) => Math.max(1, s - 1));
+  };
+
+  const handleConfirmBooking = async () => {
     setIsSubmitting(true);
     setErrorMessage('');
 
@@ -136,15 +178,11 @@ export default function PaymentModal({ isOpen, onClose, bikeData, user, onSucces
         finalReceiptUrl = await uploadReceiptToBucket(selectedFile);
       }
 
-      const uriLabel = rateType === 'hrs24' ? '24 Hours Deal' :
-                       rateType === 'hrs12' ? '12 Hours Half-Day' :
-                       rateType === 'hrs6'  ? '6 Hours Quick Deal' : 'Per Hour Rate';
-
       // Swak sa Database Schema (bookings)
       const bookingPayload = {
         client_id: activeUserId,
         payment_method: gateway,
-        rental_package: uriLabel,
+        rental_package: rateLabel,
         rental_units: safeDuration,
         status: 'Pending',
         motorcycle_name: bikeData.name || 'Motorcycle',
@@ -158,21 +196,7 @@ export default function PaymentModal({ isOpen, onClose, bikeData, user, onSucces
       const { error } = await supabase.from('bookings').insert([bookingPayload]);
       if (error) throw error;
 
-      setSuccessMessage(lang === 'en' ? 'Thank you! Your booking request has been submitted successfully. Please complete your registration profile by uploading your valid Government ID / License now.' : 'Salamat! Ang iyong booking ay matagumpay na naipadala. Mangyaring kumpletuhin ang iyong veripikasyon sa pamamagitan ng pag-upload ng iyong Gov ID / Lisensya ngayon.');
-
-      setTimeout(() => {
-        // SAFETY CHECKER PARA HINDI MAG-BLANK SCREEN!
-        if (typeof onSuccess === 'function') {
-          onSuccess();
-        } else {
-          console.warn("Wala o hindi function ang onSuccess prop.");
-        }
-
-        if (typeof onClose === 'function') {
-          onClose();
-        }
-      }, 1800);
-
+      setCurrentStep(7);
     } catch (err) {
       console.error(err);
       setErrorMessage(err.message || JSON.stringify(err) || 'An error occurred while processing your database transaction.');
@@ -181,21 +205,46 @@ export default function PaymentModal({ isOpen, onClose, bikeData, user, onSucces
     }
   };
 
+  const handleDone = () => {
+    if (typeof onSuccess === 'function') onSuccess();
+    else console.warn("Wala o hindi function ang onSuccess prop.");
+    if (typeof onClose === 'function') onClose();
+  };
+
+  const stepTitle = {
+    1: 'Choose Your Package',
+    2: 'Set Duration',
+    3: 'Payment Method',
+    4: 'Payment Structure',
+    5: gateway === 'Cash' ? 'Pickup Payment' : 'Payment Proof',
+    6: 'Review & Confirm',
+    7: 'Booking Submitted'
+  }[currentStep];
+
   return (
     <div className="fixed inset-0 bg-[rgba(15,23,42,0.85)] backdrop-blur-md flex items-center justify-center z-[9999] p-4">
-      <div className="bg-brand-bg/95 backdrop-blur-xl border-2 border-brand-primary/40 rounded-3xl w-full max-w-[460px] p-7 sm:p-8 relative box-border shadow-[0_0_0_1px_rgba(234,169,116,0.04),0_25px_50px_-12px_rgba(0,0,0,0.6),0_0_60px_-15px_rgba(234,169,116,0.15)] max-h-[90vh] overflow-y-auto animate-[fadeInEffect_0.25s_ease-out]">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Secure rental checkout"
+        className="bg-brand-bg/95 backdrop-blur-xl border-2 border-brand-primary/40 rounded-3xl w-full max-w-[460px] p-7 sm:p-8 relative box-border shadow-[0_0_0_1px_rgba(234,169,116,0.04),0_25px_50px_-12px_rgba(0,0,0,0.6),0_0_60px_-15px_rgba(234,169,116,0.15)] max-h-[90vh] overflow-y-auto animate-[fadeInEffect_0.25s_ease-out]"
+      >
 
-        <button onClick={onClose} className="absolute top-5 right-5 bg-none border-none text-brand-muted text-2xl cursor-pointer hover:text-white transition-colors">✕</button>
+        <button onClick={onClose} aria-label="Close" className="absolute top-5 right-5 bg-none border-none text-brand-muted text-2xl cursor-pointer hover:text-white transition-colors">✕</button>
 
         <h3 className="font-display m-0 mb-1 text-2xl text-white font-bold"> Secure Rental Checkout </h3>
-        <p className="m-0 mb-6 text-brand-muted text-sm">
+        <p className="m-0 mb-5 text-brand-muted text-sm">
           Unit Selected: <span className="text-brand-primary font-bold">{bikeData.name}</span>
         </p>
 
-        <div className="flex gap-2 mb-6">
-          <div className="flex-1 h-1 rounded-full bg-brand-primary"></div>
-          <div className={`flex-1 h-1 rounded-full ${activeStep === 'payment' ? 'bg-brand-primary' : 'bg-white/10'}`}></div>
+        <div className="flex gap-1.5 mb-2">
+          {Array.from({ length: TOTAL_STEPS }, (_, i) => i + 1).map((n) => (
+            <div key={n} className={`flex-1 h-1 rounded-full transition-colors ${n <= currentStep ? 'bg-brand-primary' : 'bg-white/10'}`}></div>
+          ))}
         </div>
+        <p className="text-[0.7rem] text-brand-muted font-semibold uppercase tracking-wider mb-5">
+          Step {currentStep} of {TOTAL_STEPS} — {stepTitle}
+        </p>
 
         {errorMessage && (
           <div className="bg-red-500/10 border border-red-500 text-red-400 p-2.5 rounded-lg text-[0.8rem] mb-4 break-words">
@@ -203,15 +252,13 @@ export default function PaymentModal({ isOpen, onClose, bikeData, user, onSucces
           </div>
         )}
 
-        {successMessage && (
-          <div className="bg-emerald-500/10 border border-emerald-500 text-emerald-400 p-2.5 rounded-lg text-[0.8rem] mb-4 break-words">
-            {successMessage}
-          </div>
-        )}
-
-        {activeStep === 'details' ? (
+        {/* STEP 1 — choose rate package */}
+        {currentStep === 1 && (
           <div className="flex flex-col gap-5">
-
+            <div>
+              <h4 className={stepTitleClass}>Choose Your Package</h4>
+              <p className={stepSubClass}>Pick the rate option that fits how long you need the unit.</p>
+            </div>
             <div className="flex flex-col gap-1.5">
               <label className="text-[0.8rem] text-slate-300 font-semibold">Select Rate Option:</label>
               <select value={rateType} onChange={(e) => setRateType(e.target.value)} className={selectClass}>
@@ -221,7 +268,17 @@ export default function PaymentModal({ isOpen, onClose, bikeData, user, onSucces
                 <option value="hr">Per Hour Rate (₱{getStaticPriceByRateType('hr')})</option>
               </select>
             </div>
+            <button onClick={goNext} className="btn-primary py-3.5 text-base">Next: Set Duration →</button>
+          </div>
+        )}
 
+        {/* STEP 2 — duration */}
+        {currentStep === 2 && (
+          <div className="flex flex-col gap-5">
+            <div>
+              <h4 className={stepTitleClass}>Set Duration</h4>
+              <p className={stepSubClass}>How many units of "{rateLabel}" do you need?</p>
+            </div>
             <div className="flex flex-col gap-1.5">
               <label className="text-[0.8rem] text-slate-300 font-semibold">Duration multiplier: <span className="text-brand-primary">{duration}x</span></label>
               <input
@@ -237,7 +294,24 @@ export default function PaymentModal({ isOpen, onClose, bikeData, user, onSucces
                 className={numberInputClass}
               />
             </div>
+            <div className="flex justify-between items-center pt-3 border-t border-white/[0.08]">
+              <span className="text-sm text-brand-muted font-semibold">Running Total:</span>
+              <span className="text-xl text-white font-bold">₱{grandTotal}</span>
+            </div>
+            <div className="flex gap-3">
+              <button onClick={goBack} className="flex-1 bg-transparent border border-white/20 text-white py-3.5 rounded-xl font-bold cursor-pointer hover:bg-white/5 transition-colors">← Back</button>
+              <button onClick={goNext} className="flex-[2] btn-primary py-3.5 text-base">Next: Payment Method →</button>
+            </div>
+          </div>
+        )}
 
+        {/* STEP 3 — payment method */}
+        {currentStep === 3 && (
+          <div className="flex flex-col gap-5">
+            <div>
+              <h4 className={stepTitleClass}>Payment Method</h4>
+              <p className={stepSubClass}>How would you like to pay?</p>
+            </div>
             <div className="flex flex-col gap-1.5">
               <label className="text-[0.8rem] text-slate-300 font-semibold">Payment Channel Method:</label>
               <select value={gateway} onChange={(e) => setGateway(e.target.value)} className={selectClass}>
@@ -246,19 +320,32 @@ export default function PaymentModal({ isOpen, onClose, bikeData, user, onSucces
                 <option value="Cash">Over the Counter / Cash upon Pickup</option>
               </select>
             </div>
+            <div className="flex gap-3">
+              <button onClick={goBack} className="flex-1 bg-transparent border border-white/20 text-white py-3.5 rounded-xl font-bold cursor-pointer hover:bg-white/5 transition-colors">← Back</button>
+              <button onClick={goNext} className="flex-[2] btn-primary py-3.5 text-base">
+                {gateway === 'Cash' ? 'Next: Pickup Info →' : 'Next: Payment Structure →'}
+              </button>
+            </div>
+          </div>
+        )}
 
-            {gateway !== 'Cash' && (
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[0.8rem] text-slate-300 font-semibold">Payment Option Structure:</label>
-                <select value={paymentType} onChange={(e) => setPaymentType(e.target.value)} className={selectClass}>
-                  <option value="Full Payment">Pay Full Amount Upfront (100%)</option>
-                  <option value="Down Payment (50%)">Secure via Down Payment (50%)</option>
-                  <option value="Custom Reservation Fee">Custom Reservation / Down Payment Amount</option>
-                </select>
-              </div>
-            )}
+        {/* STEP 4 — payment structure (skipped entirely for Cash) */}
+        {currentStep === 4 && gateway !== 'Cash' && (
+          <div className="flex flex-col gap-5">
+            <div>
+              <h4 className={stepTitleClass}>Payment Structure</h4>
+              <p className={stepSubClass}>Pay in full now, or secure the unit with a smaller amount.</p>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[0.8rem] text-slate-300 font-semibold">Payment Option Structure:</label>
+              <select value={paymentType} onChange={(e) => setPaymentType(e.target.value)} className={selectClass}>
+                <option value="Full Payment">Pay Full Amount Upfront (100%)</option>
+                <option value="Down Payment (50%)">Secure via Down Payment (50%)</option>
+                <option value="Custom Reservation Fee">Custom Reservation / Down Payment Amount</option>
+              </select>
+            </div>
 
-            {gateway !== 'Cash' && paymentType === 'Custom Reservation Fee' && (
+            {paymentType === 'Custom Reservation Fee' && (
               <div className="flex flex-col gap-1.5">
                 <label className="text-[0.8rem] text-brand-primary font-bold">Your Desired Deposit Amount (₱):</label>
                 <input
@@ -276,12 +363,12 @@ export default function PaymentModal({ isOpen, onClose, bikeData, user, onSucces
               </div>
             )}
 
-            <div className="flex flex-col gap-1.5 pt-4 border-t border-white/[0.08]">
+            <div className="flex flex-col gap-1.5 pt-3 border-t border-white/[0.08]">
               <div className="flex justify-between items-center">
                 <span className="text-sm text-brand-muted font-semibold">Total Contract Value:</span>
                 <span className="text-xl text-white font-bold">₱{grandTotal}</span>
               </div>
-              {gateway !== 'Cash' && paymentType !== 'Full Payment' && (
+              {paymentType !== 'Full Payment' && (
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-brand-primary font-bold">Initial Deposit Due Now:</span>
                   <span className="text-2xl text-brand-primary font-black">₱{amountToPayNow}</span>
@@ -289,15 +376,22 @@ export default function PaymentModal({ isOpen, onClose, bikeData, user, onSucces
               )}
             </div>
 
-            <button
-              onClick={() => setActiveStep('payment')}
-              className="btn-primary py-3.5 text-base"
-            >
-              Proceed to Payment →
-            </button>
+            <div className="flex gap-3">
+              <button onClick={goBack} className="flex-1 bg-transparent border border-white/20 text-white py-3.5 rounded-xl font-bold cursor-pointer hover:bg-white/5 transition-colors">← Back</button>
+              <button onClick={goNext} className="flex-[2] btn-primary py-3.5 text-base">Next: Payment Proof →</button>
+            </div>
           </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+        )}
+
+        {/* STEP 5 — payment proof (eWallet) or pickup info (Cash) */}
+        {currentStep === 5 && (
+          <div className="flex flex-col gap-5">
+            <div>
+              <h4 className={stepTitleClass}>{gateway === 'Cash' ? 'Pickup Payment' : 'Payment Proof'}</h4>
+              <p className={stepSubClass}>
+                {gateway === 'Cash' ? 'No upload required — settle payment at our counter.' : `Scan the QR code and attach your receipt screenshot.`}
+              </p>
+            </div>
 
             {gateway !== 'Cash' ? (
               <div className="flex flex-col items-center gap-2.5 bg-white/[0.02] p-4 rounded-2xl border border-white/5">
@@ -319,7 +413,7 @@ export default function PaymentModal({ isOpen, onClose, bikeData, user, onSucces
 
                 <div className="flex flex-col gap-1.5 w-full mt-2.5 border-t border-white/[0.08] pt-3">
                   <label className="text-[0.8rem] text-slate-300 font-bold">Attach Proof of Payment (Image File):</label>
-                  <input type="file" accept="image/*" required onChange={(e) => setSelectedFile(e.target.files[0] || null)} className="text-slate-300 text-[0.8rem] file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-brand-primary file:text-brand-bg file:font-bold file:cursor-pointer" />
+                  <input type="file" accept="image/*" onChange={(e) => setSelectedFile(e.target.files[0] || null)} className="text-slate-300 text-[0.8rem] file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-brand-primary file:text-brand-bg file:font-bold file:cursor-pointer" />
                 </div>
               </div>
             ) : (
@@ -332,26 +426,67 @@ export default function PaymentModal({ isOpen, onClose, bikeData, user, onSucces
               </div>
             )}
 
-            <div className="flex gap-3 mt-2">
-              <button
-                type="button"
-                onClick={() => setActiveStep('details')}
-                className="flex-1 bg-transparent border border-white/20 text-white py-3.5 rounded-xl font-bold cursor-pointer hover:bg-white/5 transition-colors"
-              >
-                ← Back
-              </button>
+            <div className="flex gap-3">
+              <button onClick={goBack} className="flex-1 bg-transparent border border-white/20 text-white py-3.5 rounded-xl font-bold cursor-pointer hover:bg-white/5 transition-colors">← Back</button>
+              <button onClick={goNext} className="flex-[2] btn-primary py-3.5 text-base">Next: Review →</button>
+            </div>
+          </div>
+        )}
 
+        {/* STEP 6 — review & confirm */}
+        {currentStep === 6 && (
+          <div className="flex flex-col gap-5">
+            <div>
+              <h4 className={stepTitleClass}>Review & Confirm</h4>
+              <p className={stepSubClass}>Double-check everything before you dispatch this booking.</p>
+            </div>
+
+            <div className="flex flex-col gap-2.5 bg-white/[0.02] p-4 rounded-2xl border border-white/5 text-[0.85rem]">
+              <div className="flex justify-between"><span className="text-brand-muted">Unit:</span><span className="text-white font-semibold">{bikeData.name}</span></div>
+              <div className="flex justify-between"><span className="text-brand-muted">Package:</span><span className="text-white font-semibold">{rateLabel} × {safeDuration}</span></div>
+              <div className="flex justify-between"><span className="text-brand-muted">Payment Method:</span><span className="text-white font-semibold">{gateway}</span></div>
+              {gateway !== 'Cash' && (
+                <div className="flex justify-between"><span className="text-brand-muted">Payment Structure:</span><span className="text-white font-semibold">{paymentType}</span></div>
+              )}
+              {gateway !== 'Cash' && (
+                <div className="flex justify-between"><span className="text-brand-muted">Proof Attached:</span><span className={selectedFile ? "text-emerald-500 font-semibold" : "text-red-400 font-semibold"}>{selectedFile ? selectedFile.name : 'None'}</span></div>
+              )}
+              <div className="flex justify-between pt-2.5 border-t border-white/[0.08]"><span className="text-brand-muted font-semibold">Total Contract Value:</span><span className="text-white font-bold text-base">₱{grandTotal}</span></div>
+              {gateway !== 'Cash' && paymentType !== 'Full Payment' && (
+                <div className="flex justify-between"><span className="text-brand-primary font-bold">Due Now:</span><span className="text-brand-primary font-black text-lg">₱{amountToPayNow}</span></div>
+              )}
+              {balanceDueUponPickup > 0 && (
+                <div className="flex justify-between"><span className="text-amber-400 font-semibold">Balance on Pickup:</span><span className="text-amber-400 font-bold">₱{balanceDueUponPickup}</span></div>
+              )}
+            </div>
+
+            <div className="flex gap-3">
+              <button onClick={goBack} disabled={isSubmitting} className="flex-1 bg-transparent border border-white/20 text-white py-3.5 rounded-xl font-bold cursor-pointer hover:bg-white/5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">← Back</button>
               <button
-                type="submit"
+                onClick={handleConfirmBooking}
                 disabled={isSubmitting}
-                className={`flex-[2] border-none py-3.5 rounded-xl font-bold ${
-                  isSubmitting ? 'bg-slate-700 text-brand-muted cursor-not-allowed' : 'btn-primary cursor-pointer'
-                }`}
+                className={`flex-[2] border-none py-3.5 rounded-xl font-bold ${isSubmitting ? 'bg-slate-700 text-brand-muted cursor-not-allowed' : 'btn-primary cursor-pointer'}`}
               >
                 {isSubmitting ? 'Processing Transaction...' : 'Confirm Book & Dispatch'}
               </button>
             </div>
-          </form>
+          </div>
+        )}
+
+        {/* STEP 7 — success */}
+        {currentStep === 7 && (
+          <div className="flex flex-col gap-5 text-center items-center py-4">
+            <span className="text-5xl">✅</span>
+            <div>
+              <h4 className={`${stepTitleClass} text-center`}>Booking Submitted!</h4>
+              <p className="text-[0.85rem] text-brand-muted leading-relaxed">
+                {lang === 'en'
+                  ? 'Thank you! Your booking request has been submitted successfully. Please complete your registration profile by uploading your valid Government ID / License now.'
+                  : 'Salamat! Ang iyong booking ay matagumpay na naipadala. Mangyaring kumpletuhin ang iyong veripikasyon sa pamamagitan ng pag-upload ng iyong Gov ID / Lisensya ngayon.'}
+              </p>
+            </div>
+            <button onClick={handleDone} className="btn-primary py-3.5 text-base w-full">Go to My Bookings</button>
+          </div>
         )}
 
       </div>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import mainWebsiteBg from '../assets/BG.png';
+import MotorcycleDetailModal from './MotorcycleDetailModal';
 
 // 🏍️ Local fallback photos — used only for motors that don't have an
 // admin-uploaded image_url yet (the 6 original launch units).
@@ -25,6 +26,7 @@ function getFallbackImage(name) {
 export default function Bikes({ onRentClick, activeRentals = [] }) {
   const [motors, setMotors] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [detailMotor, setDetailMotor] = useState(null);
 
   useEffect(() => {
     async function fetchMotors() {
@@ -45,6 +47,28 @@ export default function Bikes({ onRentClick, activeRentals = [] }) {
 
     fetchMotors();
   }, []);
+
+  const computeIsRented = (motor) => {
+    // MAGIGING UNAVAILABLE KAPAG: (1) manually na-mark ng admin as "Rented"
+    // sa Fleet Management, O (2) may active booking na naka-lock dito
+    const isManuallyMarkedRented = motor.status === 'Rented';
+
+    const hasActiveBookingLock = activeRentals.some(rental => {
+      const rentalBikeName = (rental.motorcycle_name || '').toLowerCase().trim();
+      const currentBikeName = motor.name.toLowerCase().trim();
+      const rentalStatus = (rental.status || '').toLowerCase().trim();
+
+      const mayResiboNa = !!rental.has_receipt;
+      const isSameBike = rentalBikeName === currentBikeName;
+      const isOngoing = !['completed', 'ended', 'cancelled', 'rejected'].includes(rentalStatus);
+      const isLockedStatus = ['picked up', 'approved', 'active', 'rented'].includes(rentalStatus);
+      const dapatIlock = isOngoing && (mayResiboNa || isLockedStatus);
+
+      return isSameBike && dapatIlock;
+    });
+
+    return isManuallyMarkedRented || hasActiveBookingLock;
+  };
 
   return (
     <section
@@ -74,35 +98,7 @@ export default function Bikes({ onRentClick, activeRentals = [] }) {
         <div className="grid grid-cols-[repeat(auto-fit,minmax(260px,1fr))] gap-6 sm:gap-8 w-full">
           {motors.map((motor) => {
             const displayImg = motor.image_url || getFallbackImage(motor.name);
-
-            // MAGIGING UNAVAILABLE KAPAG: (1) manually na-mark ng admin as "Rented"
-            // sa Fleet Management, O (2) may active booking na naka-lock dito
-            const isManuallyMarkedRented = motor.status === 'Rented';
-
-            const hasActiveBookingLock = activeRentals.some(rental => {
-              const rentalBikeName = (rental.motorcycle_name || '').toLowerCase().trim();
-              const currentBikeName = motor.name.toLowerCase().trim();
-              const rentalStatus = (rental.status || '').toLowerCase().trim();
-
-              // Tinitignan kung may na-upload nang screenshot/file ng resibo
-              const mayResiboNa = !!rental.receipt_url;
-
-              const isSameBike = rentalBikeName === currentBikeName;
-
-              // 1. Siguraduhing hindi pa tapos ang transaction (Babalik sa Available pag Completed/Cancelled)
-              const isOngoing = !['completed', 'ended', 'cancelled', 'rejected'].includes(rentalStatus);
-
-              // 2. MAGIGING UNAVAILABLE KAPAG:
-              // - Nai-mark na ni admin as "Picked Up", "Approved", o "Active"
-              const isLockedStatus = ['picked up', 'approved', 'active', 'rented'].includes(rentalStatus);
-
-              // 3. I-lock ang bike kung Ongoing ang renta AT (may nag-downpayment O nai-mark na as Picked Up/Approved)
-              const dapatIlock = isOngoing && (mayResiboNa || isLockedStatus);
-
-              return isSameBike && dapatIlock;
-            });
-
-            const isRented = isManuallyMarkedRented || hasActiveBookingLock;
+            const isRented = computeIsRented(motor);
 
             return (
               <div
@@ -149,19 +145,27 @@ export default function Bikes({ onRentClick, activeRentals = [] }) {
                     {motor.description}
                   </p>
 
-                  <button
-                    onClick={() => {
-                      if (!isRented) onRentClick(motor);
-                    }}
-                    disabled={isRented}
-                    className={`w-full border-none py-3 rounded-xl font-bold text-sm uppercase tracking-wide mt-1 ${
-                      isRented
-                        ? 'bg-slate-700 text-slate-500 cursor-not-allowed transition-none'
-                        : 'btn-primary cursor-pointer'
-                    }`}
-                  >
-                    {isRented ? 'Rented Out / Unavailable' : 'Rent Now'}
-                  </button>
+                  <div className="flex gap-2 mt-1">
+                    <button
+                      onClick={() => setDetailMotor(motor)}
+                      className="shrink-0 px-4 py-3 rounded-xl font-bold text-sm bg-white/5 text-white border border-white/10 hover:bg-white/10 transition-colors cursor-pointer"
+                    >
+                      Details
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (!isRented) onRentClick(motor);
+                      }}
+                      disabled={isRented}
+                      className={`flex-1 border-none py-3 rounded-xl font-bold text-sm uppercase tracking-wide ${
+                        isRented
+                          ? 'bg-slate-700 text-slate-500 cursor-not-allowed transition-none'
+                          : 'btn-primary cursor-pointer'
+                      }`}
+                    >
+                      {isRented ? 'Rented Out / Unavailable' : 'Rent Now'}
+                    </button>
+                  </div>
                 </div>
 
               </div>
@@ -171,6 +175,15 @@ export default function Bikes({ onRentClick, activeRentals = [] }) {
         )}
 
       </div>
+
+      <MotorcycleDetailModal
+        motor={detailMotor}
+        isOpen={!!detailMotor}
+        onClose={() => setDetailMotor(null)}
+        isRented={detailMotor ? computeIsRented(detailMotor) : false}
+        onRentClick={onRentClick}
+        resolvedImage={detailMotor ? getFallbackImage(detailMotor.name) : null}
+      />
     </section>
   );
 }

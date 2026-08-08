@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
+import useEscapeToClose from '../hooks/useEscapeToClose';
 
 const inputClass = "w-full px-4 py-3 bg-black/25 border border-white/10 rounded-xl text-white text-[0.95rem] outline-none mb-4 transition-all duration-200 placeholder:text-slate-500 focus:border-brand-primary/60 focus:ring-2 focus:ring-brand-primary/15";
 
@@ -53,6 +54,8 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, lang, isRec
       setSuccessMessage('');
     }
   }, [isOpen, isRecoveryModeInitial]);
+
+  useEscapeToClose(isOpen, onClose);
 
   if (!isOpen) return null;
 
@@ -208,6 +211,9 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, lang, isRec
     >
       <div
         onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label={headerText}
         className="bg-brand-card/95 backdrop-blur-xl border border-brand-primary/15 rounded-3xl p-8 sm:p-10 w-[90%] max-w-[460px] shadow-[0_0_0_1px_rgba(234,169,116,0.04),0_30px_60px_rgba(0,0,0,0.6)] animate-[fadeInEffect_0.25s_ease-out]"
       >
 
@@ -218,6 +224,7 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, lang, isRec
           {!isUpdatePassword && (
             <button
               onClick={onClose}
+              aria-label="Close"
               className="bg-transparent border-none text-brand-muted text-3xl cursor-pointer leading-none hover:text-white transition-colors"
             >&times;</button>
           )}

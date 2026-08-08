@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import mainWebsiteBg from '../assets/BG.png';
+import PrivacyPolicyModal from './PrivacyPolicyModal';
 
 export default function Contact({ lang }) {
+  const [privacyOpen, setPrivacyOpen] = useState(false);
   const mapsUrl = "https://www.google.com/maps/search/?api=1&query=TOMMY+STORE+Minuyan+Norzagaray+Bulacan";
 
   return (
@@ -72,7 +74,18 @@ export default function Contact({ lang }) {
 
         </div>
 
+        <div className="text-center mt-10">
+          <button
+            onClick={() => setPrivacyOpen(true)}
+            className="bg-transparent border-none text-brand-muted text-xs font-semibold underline cursor-pointer hover:text-brand-primary transition-colors"
+          >
+            🔒 {lang === 'en' ? 'Privacy Notice — what we collect & why' : 'Patakaran sa Privacy — ano ang kinukuha namin at bakit'}
+          </button>
+        </div>
+
       </div>
+
+      <PrivacyPolicyModal isOpen={privacyOpen} onClose={() => setPrivacyOpen(false)} />
     </section>
   );
 }

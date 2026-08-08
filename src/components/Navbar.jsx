@@ -1,22 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
+import useEscapeToClose from '../hooks/useEscapeToClose';
 
 export default function Navbar({
   activeTab,
   setActiveTab,
   user,
   setUser,
-  onAuthClick
+  onAuthClick,
+  isAdmin
 }) {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef(null);
-
-  // Admin Verification
-  const isAdmin =
-    user?.email === 'anjhon.hulguin02@gmail.com' ||
-    user?.email?.startsWith('admin') ||
-    user?.email === 'admin@motorent.local';
 
   // Display name para sa greeting
   const displayName = user?.user_metadata?.username || user?.email?.split('@')[0] || 'User';
@@ -40,6 +36,8 @@ export default function Navbar({
     }
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isMenuOpen]);
+
+  useEscapeToClose(isMenuOpen, () => setIsMenuOpen(false));
 
   const handleBrandClick = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -132,6 +130,8 @@ export default function Navbar({
         <div className="relative lg:hidden" ref={menuRef}>
           <button
             onClick={() => setIsMenuOpen(!isMenuOpen)}
+            aria-label={isMenuOpen ? 'Close menu' : 'Open menu'}
+            aria-expanded={isMenuOpen}
             className="w-10 h-10 rounded-full bg-white/5 border border-white/10 text-white flex items-center justify-center cursor-pointer transition-colors duration-200 hover:bg-white/10 hover:border-white/20"
           >
             <span className="text-lg">☰</span>

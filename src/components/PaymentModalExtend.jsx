@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
+import useEscapeToClose from '../hooks/useEscapeToClose';
 
 const labelClass = "text-brand-muted block mb-1.5 text-[0.8rem] font-bold";
 const inputClass = "p-3 bg-[#0b1329] text-white border border-brand-primary/20 rounded-lg w-full outline-none box-border focus:border-brand-primary/50 transition-colors";
 
 export default function PaymentModalExtend({ booking, onClose, onSuccess, lang }) {
+  useEscapeToClose(true, onClose);
+
   const [selectedPackage, setSelectedPackage] = useState('24');
   const [quantity, setQuantity] = useState(1);
   const [paymentMethod, setPaymentMethod] = useState('eWallet');
@@ -68,11 +71,9 @@ export default function PaymentModalExtend({ booking, onClose, onSuccess, lang }
 
         if (uploadError) throw uploadError;
 
-        const { data: urlData } = supabase.storage
-          .from('resibo_extension')
-          .getPublicUrl(fileName);
-
-        extensionReceiptUrl = urlData.publicUrl;
+        // Bare storage path lang — private na ang bucket, signed URL na
+        // lang ang gagamitin on-demand kapag titingnan ni admin.
+        extensionReceiptUrl = fileName;
       }
 
       const currentUnits = Number(booking.rental_units) || 1;
@@ -128,7 +129,12 @@ export default function PaymentModalExtend({ booking, onClose, onSuccess, lang }
 
   return (
     <div className="fixed inset-0 bg-[rgba(5,8,16,0.9)] backdrop-blur-sm flex justify-center items-center z-[10000] p-4">
-      <div className="bg-[#111827]/95 backdrop-blur-xl border border-brand-primary/15 rounded-[20px] p-8 w-full max-w-[420px] box-border max-h-[90vh] overflow-y-auto shadow-[0_25px_50px_-12px_rgba(0,0,0,0.6)] animate-[fadeInEffect_0.25s_ease-out]">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={lang === 'en' ? 'Extend rental' : 'Mag-extend ng arkila'}
+        className="bg-[#111827]/95 backdrop-blur-xl border border-brand-primary/15 rounded-[20px] p-8 w-full max-w-[420px] box-border max-h-[90vh] overflow-y-auto shadow-[0_25px_50px_-12px_rgba(0,0,0,0.6)] animate-[fadeInEffect_0.25s_ease-out]"
+      >
         <h2 className="font-display text-brand-primary m-0 mb-2.5 text-xl font-bold">{lang === 'en' ? 'Extend Rental' : 'Mag-extend ng Arkila'}</h2>
         <p className="text-brand-muted text-[0.85rem] mb-5">
           Unit: <strong className="text-white">{booking.motorcycle_name || 'Bike'}</strong>
