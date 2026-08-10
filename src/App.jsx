@@ -5,6 +5,7 @@ import Bikes from './components/Bikes';
 import Reviews from './components/Reviews';
 import About from './components/About';
 import Contact from './components/Contact';
+import Footer from './components/Footer';
 import ConsentBanner from './components/ConsentBanner';
 import { supabase } from './supabaseClient';
 
@@ -157,6 +158,8 @@ export default function App() {
           </Suspense>
         )}
       </main>
+
+      <Footer lang={lang} setActiveTab={setActiveTab} />
 
       {/* MODALS ENTRY NODES */}
       <div className="relative z-[100000]">
