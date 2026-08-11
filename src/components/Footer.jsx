@@ -1,16 +1,18 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import PrivacyPolicyModal from './PrivacyPolicyModal';
 
 const linkClass = "bg-transparent border-none p-0 text-left text-brand-muted text-sm cursor-pointer hover:text-brand-primary transition-colors";
 const headingClass = "font-display text-white text-sm font-bold uppercase tracking-wider mb-4";
 
-export default function Footer({ lang, setActiveTab }) {
+export default function Footer({ lang }) {
+  const navigate = useNavigate();
   const [privacyOpen, setPrivacyOpen] = useState(false);
   const mapsUrl = "https://www.google.com/maps/search/?api=1&query=TOMMY+STORE+Minuyan+Norzagaray+Bulacan";
   const year = new Date().getFullYear();
 
-  const goTo = (tab) => {
-    setActiveTab(tab);
+  const goTo = (path) => {
+    navigate(path);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -34,11 +36,11 @@ export default function Footer({ lang, setActiveTab }) {
         <div>
           <h4 className={headingClass}>{lang === 'en' ? 'Quick Links' : 'Mga Link'}</h4>
           <div className="flex flex-col gap-2.5">
-            <button onClick={() => goTo('home')} className={linkClass}>{lang === 'en' ? 'Home' : 'Home'}</button>
-            <button onClick={() => goTo('bikes')} className={linkClass}>{lang === 'en' ? 'Bikes' : 'Mga Motor'}</button>
-            <button onClick={() => goTo('about')} className={linkClass}>{lang === 'en' ? 'Guidelines' : 'Patnubay'}</button>
-            <button onClick={() => goTo('reviews')} className={linkClass}>{lang === 'en' ? 'Reviews' : 'Mga Review'}</button>
-            <button onClick={() => goTo('contact')} className={linkClass}>{lang === 'en' ? 'Contact' : 'Makipag-ugnayan'}</button>
+            <button onClick={() => goTo('/')} className={linkClass}>{lang === 'en' ? 'Home' : 'Home'}</button>
+            <button onClick={() => goTo('/bikes')} className={linkClass}>{lang === 'en' ? 'Bikes' : 'Mga Motor'}</button>
+            <button onClick={() => goTo('/guidelines')} className={linkClass}>{lang === 'en' ? 'Guidelines' : 'Patnubay'}</button>
+            <button onClick={() => goTo('/reviews')} className={linkClass}>{lang === 'en' ? 'Reviews' : 'Mga Review'}</button>
+            <button onClick={() => goTo('/contact')} className={linkClass}>{lang === 'en' ? 'Contact' : 'Makipag-ugnayan'}</button>
           </div>
         </div>
 

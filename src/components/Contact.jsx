@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import mainWebsiteBg from '../assets/BG.png';
+import mainWebsiteBg from '../assets/BG.jpg';
 import PrivacyPolicyModal from './PrivacyPolicyModal';
 
 export default function Contact({ lang }) {
@@ -9,7 +9,7 @@ export default function Contact({ lang }) {
   return (
     <section
       id="contact"
-      className="w-full min-h-screen flex flex-col items-center bg-[#0f172a] bg-cover bg-center bg-no-repeat box-border relative px-4 pb-40 pt-0"
+      className="w-full min-h-[60vh] flex flex-col items-center bg-[#0f172a] bg-cover bg-center bg-no-repeat box-border relative px-4 pb-40 pt-0"
       style={{ backgroundImage: `url(${mainWebsiteBg})` }}
     >
       <div className="glass-panel relative top-[130px] border-2 max-w-[1000px] w-full p-6 sm:p-14 box-border z-20 mb-16">

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, Suspense, lazy } from 'react';
+import { Routes, Route, Navigate, useNavigate, useLocation, useParams } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
 import Bikes from './components/Bikes';
@@ -7,6 +8,7 @@ import About from './components/About';
 import Contact from './components/Contact';
 import Footer from './components/Footer';
 import ConsentBanner from './components/ConsentBanner';
+import SEO from './components/SEO';
 import { supabase } from './supabaseClient';
 
 // Code-split the account-gated / modal-only screens — none of these are
@@ -17,13 +19,49 @@ const PaymentModal = lazy(() => import('./components/PaymentModal'));
 const Dashboard = lazy(() => import('./components/Dashboard'));
 const AdminDashboard = lazy(() => import('./components/AdminDashboard'));
 
+const SITE_URL = 'https://motorent-xi.vercel.app';
+
+// Scrolls to the top on every route change — React Router doesn't do this
+// automatically, and without it a tab switch keeps whatever scroll
+// position the previous page was left at.
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  }, [pathname]);
+  return null;
+}
+
+// Lets a direct link to /book/:motorName (shared, bookmarked, or a page
+// refresh) hydrate the booking modal on its own, instead of only working
+// when reached by clicking "Rent Now" inside the app.
+function useBookingDeepLink(selectedBikeForRent, onHydrate) {
+  const { motorName } = useParams();
+  useEffect(() => {
+    async function hydrate() {
+      if (!motorName) return;
+      const decoded = decodeURIComponent(motorName);
+      if (selectedBikeForRent?.name === decoded) return;
+      const { data } = await supabase.from('motorcycles').select('*').eq('name', decoded).maybeSingle();
+      if (data) onHydrate(data);
+    }
+    hydrate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [motorName]);
+}
+
+function BookingRoute({ selectedBikeForRent, onHydrate, onRentClick, activeRentals, lang }) {
+  useBookingDeepLink(selectedBikeForRent, onHydrate);
+  return <Bikes onRentClick={onRentClick} lang={lang} activeRentals={activeRentals} />;
+}
+
 export default function App() {
-  const [activeTab, setActiveTab] = useState('home');
-  // 🌟 ETO ANG FIX: Idinagdag natin ang 'lang' variable para hindi na mag-crash!
-  const [lang, setLang] = useState('en'); 
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [lang, setLang] = useState('en');
   const [user, setUser] = useState(null);
   const [authModalOpen, setAuthModalOpen] = useState(false);
-  const [isRecoveryMode, setIsRecoveryMode] = useState(false); 
+  const [isRecoveryMode, setIsRecoveryMode] = useState(false);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [selectedBikeForRent, setSelectedBikeForRent] = useState(null);
   const [activeRentals, setActiveRentals] = useState([]);
@@ -89,21 +127,37 @@ export default function App() {
     fetchFleetActiveBookings();
   }, []);
 
-  // Handler kapag pinindot ang Rent Now sa mismong catalog ng motor
+  // Handler kapag pinindot ang Rent Now sa mismong catalog ng motor. Bukas
+  // na ito sa lahat, kahit hindi pa naka-login — makikita muna ng bisita
+  // ang package, duration, at estimated total bago hingin ang login, sa
+  // huling hakbang na lang (Confirm Book & Dispatch) kailangan mag-login.
   const handleRentClick = (bike) => {
-    if (!user) {
-      setAuthModalOpen(true);
-      return;
-    }
+    setSelectedBikeForRent(bike);
+    setPaymentModalOpen(true);
+    navigate(`/book/${encodeURIComponent(bike.name)}`);
+  };
+
+  const handleBookingHydrate = (bike) => {
     setSelectedBikeForRent(bike);
     setPaymentModalOpen(true);
   };
 
+  const closeBookingModal = () => {
+    setPaymentModalOpen(false);
+    navigate('/bikes');
+  };
+
+  // Kapag naka-encounter ang guest ng "kailangan mag-login" habang nasa
+  // gitna na ng booking wizard, buksan ang AuthModal sa ibabaw lang —
+  // hindi natin sinasara ang PaymentModal, kaya hindi nawawala ang mga
+  // napili na niya (package, duration, payment method, atbp.).
+  const handleRequireLogin = () => {
+    setAuthModalOpen(true);
+  };
+
   // Helper/Wrapper para sa Hero button navigation
   const handleHeroRentNowNavigation = () => {
-    setActiveTab('bikes');
-    // Awtomatikong mag-scroll up sa catalog section para kitang-kita ng user
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    navigate('/bikes');
   };
 
   const handleStatusUpdate = () => {
@@ -112,11 +166,10 @@ export default function App() {
 
   return (
     <div className="bg-brand-bg min-h-screen text-white font-sans">
+      <ScrollToTop />
 
       {/* GLOBAL APPLICATION NAVIGATION HEADER */}
       <Navbar
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
         user={user}
         onAuthClick={() => setAuthModalOpen(true)}
         isAdmin={isAdmin}
@@ -124,42 +177,127 @@ export default function App() {
 
       {/* CORE ROUTER ENGINE MAIN RENDERING NODES */}
       <main className="w-full min-h-[calc(100vh-90px)] box-border">
-        
-        {/* HOMEPAGE LANDING ARCHITECTURE */}
-        {activeTab === 'home' && (
-          <Hero 
-            setActiveTab={handleHeroRentNowNavigation} 
-            lang={lang} 
+        <Routes>
+          <Route
+            path="/"
+            element={
+              <>
+                <SEO
+                  title="Motorcycle Rentals in Norzagaray, Bulacan"
+                  description="MotoRent offers premium, well-maintained motorcycle rentals in Norzagaray, Bulacan. Book by the hour, half-day, or full day — no mileage limit."
+                  path="/"
+                />
+                <Hero setActiveTab={handleHeroRentNowNavigation} lang={lang} />
+              </>
+            }
           />
-        )}
 
-        {/* PREMIUM FLEET MOTORCYCLE CATALOG */}
-        {activeTab === 'bikes' && (
-          <Bikes onRentClick={handleRentClick} lang={lang} activeRentals={activeRentals} />
-        )}
+          <Route
+            path="/bikes"
+            element={
+              <>
+                <SEO
+                  title="Available Fleet Catalog"
+                  description="Browse MotoRent's full motorcycle lineup with real-time availability and transparent hourly, half-day, and full-day rates."
+                  path="/bikes"
+                />
+                <Bikes onRentClick={handleRentClick} lang={lang} activeRentals={activeRentals} />
+              </>
+            }
+          />
 
-        {activeTab === 'reviews' && <Reviews lang={lang} />}
+          <Route
+            path="/book/:motorName"
+            element={
+              <>
+                <SEO title="Book a Motorcycle" description="Reserve your motorcycle rental with MotoRent Bulacan." path={location.pathname} />
+                <BookingRoute
+                  selectedBikeForRent={selectedBikeForRent}
+                  onHydrate={handleBookingHydrate}
+                  onRentClick={handleRentClick}
+                  activeRentals={activeRentals}
+                  lang={lang}
+                />
+              </>
+            }
+          />
 
-        {activeTab === 'about' && <About lang={lang} />}
+          <Route
+            path="/guidelines"
+            element={
+              <>
+                <SEO
+                  title="Rental Guidelines & Policies"
+                  description="What you need to rent a motorcycle from MotoRent, and our real deposit, helmet, fuel, late-return, and cancellation policies."
+                  path="/guidelines"
+                />
+                <About lang={lang} />
+              </>
+            }
+          />
 
-        {activeTab === 'contact' && <Contact lang={lang} />}
+          <Route
+            path="/reviews"
+            element={
+              <>
+                <SEO
+                  title="Customer Reviews"
+                  description="See what MotoRent customers say about their motorcycle rental experience in Norzagaray, Bulacan."
+                  path="/reviews"
+                />
+                <Reviews lang={lang} />
+              </>
+            }
+          />
 
-        {/* USER PROFILE MANAGEMENT PORTAL */}
-        {activeTab === 'dashboard' && user && !isAdmin && (
-          <Suspense fallback={<ScreenLoadingFallback />}>
-            <Dashboard user={user} lang={lang} activeTab={activeTab} />
-          </Suspense>
-        )}
+          <Route
+            path="/contact"
+            element={
+              <>
+                <SEO
+                  title="Contact Us"
+                  description="Get in touch with MotoRent Bulacan — phone, email, Facebook, and our hub location in Norzagaray."
+                  path="/contact"
+                />
+                <Contact lang={lang} />
+              </>
+            }
+          />
 
-        {/* PRIVILEGED FLEET COMMAND CORE */}
-        {activeTab === 'admin' && user && isAdmin && (
-          <Suspense fallback={<ScreenLoadingFallback />}>
-            <AdminDashboard onStatusUpdate={handleStatusUpdate} lang={lang} />
-          </Suspense>
-        )}
+          {/* USER PROFILE MANAGEMENT PORTAL */}
+          <Route
+            path="/dashboard"
+            element={
+              user && !isAdmin ? (
+                <Suspense fallback={<ScreenLoadingFallback />}>
+                  <SEO title="My Bookings" description="View and manage your MotoRent bookings." path="/dashboard" />
+                  <Dashboard user={user} lang={lang} />
+                </Suspense>
+              ) : (
+                <Navigate to="/" replace />
+              )
+            }
+          />
+
+          {/* PRIVILEGED FLEET COMMAND CORE */}
+          <Route
+            path="/admin"
+            element={
+              user && isAdmin ? (
+                <Suspense fallback={<ScreenLoadingFallback />}>
+                  <AdminDashboard onStatusUpdate={handleStatusUpdate} lang={lang} />
+                </Suspense>
+              ) : (
+                <Navigate to="/" replace />
+              )
+            }
+          />
+
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
       </main>
 
-      <Footer lang={lang} setActiveTab={setActiveTab} />
+      <Footer lang={lang} />
 
       {/* MODALS ENTRY NODES */}
       <div className="relative z-[100000]">
@@ -177,13 +315,14 @@ export default function App() {
 
           <PaymentModal
             isOpen={paymentModalOpen}
-            onClose={() => setPaymentModalOpen(false)}
+            onClose={closeBookingModal}
+            onRequireLogin={handleRequireLogin}
             bikeData={selectedBikeForRent}
             user={user}
             lang={lang}
             onSuccess={() => {
               setPaymentModalOpen(false);
-              setActiveTab('dashboard');
+              navigate('/dashboard');
             }}
           />
         </Suspense>
@@ -201,3 +340,5 @@ function ScreenLoadingFallback() {
     </div>
   );
 }
+
+export { SITE_URL };

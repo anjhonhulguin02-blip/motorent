@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import useEscapeToClose from '../hooks/useEscapeToClose';
+import useModalA11y from '../hooks/useModalA11y';
 
 const specRowClass = "flex flex-col gap-0.5 bg-white/[0.03] border border-white/5 rounded-xl px-4 py-3";
 const specLabelClass = "text-[0.68rem] text-brand-muted font-bold uppercase tracking-wider";
@@ -7,6 +8,8 @@ const specValueClass = "text-white font-semibold text-sm";
 
 export default function MotorcycleDetailModal({ motor, isOpen, onClose, isRented, onRentClick, resolvedImage }) {
   useEscapeToClose(isOpen && !!motor, onClose);
+  const dialogRef = useRef(null);
+  useModalA11y(isOpen && !!motor, dialogRef);
 
   if (!isOpen || !motor) return null;
 
@@ -31,11 +34,13 @@ export default function MotorcycleDetailModal({ motor, isOpen, onClose, isRented
   return (
     <div className="fixed inset-0 bg-[rgba(15,23,42,0.85)] backdrop-blur-md flex items-center justify-center z-[9999] p-4" onClick={onClose}>
       <div
+        ref={dialogRef}
+        tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-label={`${motor.name} details`}
-        className="bg-brand-bg/95 backdrop-blur-xl border-2 border-brand-primary/40 rounded-3xl w-full max-w-[600px] relative box-border shadow-[0_0_0_1px_rgba(234,169,116,0.04),0_25px_50px_-12px_rgba(0,0,0,0.6),0_0_60px_-15px_rgba(234,169,116,0.15)] max-h-[90vh] overflow-y-auto animate-[fadeInEffect_0.25s_ease-out]"
+        className="bg-brand-bg/95 backdrop-blur-xl border-2 border-brand-primary/40 rounded-3xl w-full max-w-[600px] relative box-border shadow-[0_0_0_1px_rgba(234,169,116,0.04),0_25px_50px_-12px_rgba(0,0,0,0.6),0_0_60px_-15px_rgba(234,169,116,0.15)] max-h-[90vh] overflow-y-auto animate-[fadeInEffect_0.25s_ease-out] outline-none"
       >
         <button onClick={onClose} aria-label="Close" className="absolute top-5 right-5 z-10 bg-black/40 backdrop-blur-sm rounded-full w-8 h-8 flex items-center justify-center border-none text-white text-xl cursor-pointer hover:bg-black/60 transition-colors">✕</button>
 

@@ -1,11 +1,14 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import useEscapeToClose from '../hooks/useEscapeToClose';
+import useModalA11y from '../hooks/useModalA11y';
 
 // Reusable in-app confirmation modal — pinapalitan ang native window.confirm(),
 // na pwedeng ma-block o hindi gumana nang maayos sa ilang browsers (lalo na
 // sa mobile), kaya parang "walang nangyayari" kapag pinindot ang isang button.
 export default function ConfirmDialog({ confirmState, onCancel }) {
   useEscapeToClose(!!confirmState, onCancel);
+  const dialogRef = useRef(null);
+  useModalA11y(!!confirmState, dialogRef);
 
   if (!confirmState) return null;
   const { message, onConfirm, confirmLabel, danger } = confirmState;
@@ -16,11 +19,13 @@ export default function ConfirmDialog({ confirmState, onCancel }) {
       onClick={onCancel}
     >
       <div
+        ref={dialogRef}
+        tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
         role="alertdialog"
         aria-modal="true"
         aria-label="Confirm action"
-        className="bg-brand-card/95 backdrop-blur-xl border border-white/10 rounded-2xl p-6 w-full max-w-[400px] shadow-[0_25px_50px_-12px_rgba(0,0,0,0.6)] animate-[fadeInEffect_0.2s_ease-out]"
+        className="bg-brand-card/95 backdrop-blur-xl border border-white/10 rounded-2xl p-6 w-full max-w-[400px] shadow-[0_25px_50px_-12px_rgba(0,0,0,0.6)] animate-[fadeInEffect_0.2s_ease-out] outline-none"
       >
         <p className="text-white text-sm leading-relaxed mb-5 whitespace-pre-line m-0">{message}</p>
         <div className="flex gap-3">

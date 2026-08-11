@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import mainWebsiteBg from '../assets/BG.png';
+import mainWebsiteBg from '../assets/BG.jpg';
 import { supabase } from '../supabaseClient';
 
 // 📸 LOCAL ASSETS IMPORT (Places folder)
@@ -15,7 +15,7 @@ import nmaxImg from '../assets/Bikes/nmaxv3.jpg';
 import aeroxImg from '../assets/Bikes/aeroxv3.jpg';
 import clickImg from '../assets/Bikes/click125.jpg';
 import beatImg from '../assets/Bikes/beat.jpg';
-import fazzioImg from '../assets/Bikes/fazzio.png';
+import fazzioImg from '../assets/Bikes/fazzio.jpg';
 import mioiImg from '../assets/Bikes/mio i 125.jpg';
 
 function getFallbackImage(name) {
@@ -180,9 +180,15 @@ export default function Hero({ lang, setActiveTab }) {
               className="flex w-full h-full transition-transform duration-[800ms] ease-[cubic-bezier(0.16,1,0.3,1)]"
               style={{ transform: `translateX(-${currentSlide * 100}%)` }}
             >
-              {DESTINATIONS.map((dest) => (
+              {DESTINATIONS.map((dest, index) => (
                 <div key={dest.id} className="shrink-0 w-full h-full relative">
-                  <img src={dest.img} alt={dest.name} className="w-full h-full object-cover pointer-events-none" />
+                  <img
+                    src={dest.img}
+                    alt={dest.name}
+                    loading={index === 0 ? 'eager' : 'lazy'}
+                    fetchPriority={index === 0 ? 'high' : 'auto'}
+                    className="w-full h-full object-cover pointer-events-none"
+                  />
                   <div className="absolute inset-0 bg-gradient-to-t from-[#050811] from-0% via-[rgba(5,8,17,0.1)] via-60% to-transparent to-100% pointer-events-none" />
                   <div className="absolute bottom-8 left-8 right-8 z-[5]">
                     <h3 className="font-display text-white m-0 mb-1.5 text-2xl sm:text-3xl font-bold tracking-tight">{dest.name}</h3>
@@ -262,7 +268,7 @@ export default function Hero({ lang, setActiveTab }) {
           </button>
 
           <div className="text-center text-xs text-brand-primary pt-1 font-semibold tracking-wide">
-            ✓ Verified Cyber-Fleet Analytics
+            {lang === 'en' ? 'Based on our actual booking history' : 'Base sa totoong kasaysayan ng aming mga booking'}
           </div>
 
         </div>

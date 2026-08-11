@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /dashboard
+Disallow: /book/
+
+Sitemap: https://motorent-xi.vercel.app/sitemap.xml

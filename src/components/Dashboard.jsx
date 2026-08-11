@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
-import mainWebsiteBg from '../assets/BG.png';
+import mainWebsiteBg from '../assets/BG.jpg';
 import PaymentModalExtend from './PaymentModalExtend';
 import Toast from './Toast';
 import ConfirmDialog from './ConfirmDialog';
@@ -10,7 +10,7 @@ import nmaxImg from '../assets/Bikes/nmaxv3.jpg';
 import aeroxImg from '../assets/Bikes/aeroxv3.jpg';
 import clickImg from '../assets/Bikes/click125.jpg';
 import beatImg from '../assets/Bikes/beat.jpg';
-import fazzioImg from '../assets/Bikes/fazzio.png';
+import fazzioImg from '../assets/Bikes/fazzio.jpg';
 import mioiImg from '../assets/Bikes/mio i 125.jpg';
 
 const cardRowClass = "flex justify-between items-start text-[0.85rem] gap-2.5";
@@ -18,7 +18,7 @@ const cardLabelClass = "text-brand-muted font-medium whitespace-nowrap";
 const cardValueClass = "text-slate-50 font-semibold text-right break-words";
 const glassInputClass = "w-full px-3.5 py-2.5 bg-[#0e1424] text-white border border-brand-primary/20 rounded-lg text-[0.9rem] outline-none box-border focus:border-brand-primary/50 transition-colors";
 
-export default function Dashboard({ user, lang, activeTab }) {
+export default function Dashboard({ user, lang }) {
   const [toast, setToast] = useState(null);
   const [confirmState, setConfirmState] = useState(null);
   const [myBookings, setMyBookings] = useState([]);
@@ -111,7 +111,7 @@ export default function Dashboard({ user, lang, activeTab }) {
     fetchReviewedBookings();
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
-  }, [user, activeTab]);
+  }, [user]);
 
   const handleIDUpload = async (e, bookingId) => {
     const file = e.target.files[0];
@@ -259,7 +259,7 @@ export default function Dashboard({ user, lang, activeTab }) {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen bg-[#050811] text-brand-primary">
-        <div className="text-center tracking-wide font-bold text-sm">LOADING ENVIRONMENT...</div>
+        <div className="text-center tracking-wide font-bold text-sm">LOADING YOUR BOOKINGS...</div>
       </div>
     );
   }
@@ -306,7 +306,9 @@ export default function Dashboard({ user, lang, activeTab }) {
       <div className="w-full max-w-[1100px]">
         {visibleBookings.length === 0 ? (
           <div className="glass-card p-12 text-center text-slate-500 text-sm italic">
-            No current lifecycle records found.
+            {currentTab === 'active'
+              ? (lang === 'en' ? "You don't have any active rentals right now." : 'Wala ka pang aktibong renta sa ngayon.')
+              : (lang === 'en' ? 'No past rentals yet.' : 'Wala ka pang naitatapos na renta.')}
           </div>
         ) : (
           <div className="grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-6 w-full">

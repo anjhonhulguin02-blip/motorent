@@ -1,22 +1,27 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import useEscapeToClose from '../hooks/useEscapeToClose';
+import useModalA11y from '../hooks/useModalA11y';
 
 const sectionTitleClass = "font-display text-white font-bold text-base mt-5 mb-2";
 const paraClass = "text-sm text-slate-300 leading-relaxed m-0 mb-2";
 
 export default function PrivacyPolicyModal({ isOpen, onClose }) {
   useEscapeToClose(isOpen, onClose);
+  const dialogRef = useRef(null);
+  useModalA11y(isOpen, dialogRef);
 
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-[rgba(15,23,42,0.85)] backdrop-blur-md flex items-center justify-center z-[100002] p-4" onClick={onClose}>
       <div
+        ref={dialogRef}
+        tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-label="Privacy notice"
-        className="bg-brand-bg/95 backdrop-blur-xl border-2 border-brand-primary/40 rounded-3xl w-full max-w-[560px] p-7 sm:p-8 relative box-border max-h-[85vh] overflow-y-auto animate-[fadeInEffect_0.25s_ease-out]"
+        className="bg-brand-bg/95 backdrop-blur-xl border-2 border-brand-primary/40 rounded-3xl w-full max-w-[560px] p-7 sm:p-8 relative box-border max-h-[85vh] overflow-y-auto animate-[fadeInEffect_0.25s_ease-out] outline-none"
       >
         <button onClick={onClose} aria-label="Close" className="absolute top-5 right-5 bg-none border-none text-brand-muted text-2xl cursor-pointer hover:text-white transition-colors">✕</button>
 

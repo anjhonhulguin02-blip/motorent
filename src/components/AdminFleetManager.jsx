@@ -10,7 +10,7 @@ import nmaxImg from '../assets/Bikes/nmaxv3.jpg';
 import aeroxImg from '../assets/Bikes/aeroxv3.jpg';
 import clickImg from '../assets/Bikes/click125.jpg';
 import beatImg from '../assets/Bikes/beat.jpg';
-import fazzioImg from '../assets/Bikes/fazzio.png';
+import fazzioImg from '../assets/Bikes/fazzio.jpg';
 import mioiImg from '../assets/Bikes/mio i 125.jpg';
 
 function getFallbackImage(name) {

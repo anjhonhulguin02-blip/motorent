@@ -1,4 +1,7 @@
 {
+  "rewrites": [
+    { "source": "/((?!assets/|favicon|robots.txt|sitemap.xml|gcash-qr|maya-qr).*)", "destination": "/index.html" }
+  ],
   "headers": [
     {
       "source": "/(.*)",

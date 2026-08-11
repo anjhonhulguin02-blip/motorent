@@ -1,12 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import useEscapeToClose from '../hooks/useEscapeToClose';
+import useModalA11y from '../hooks/useModalA11y';
 
 const labelClass = "text-brand-muted block mb-1.5 text-[0.8rem] font-bold";
 const inputClass = "p-3 bg-[#0b1329] text-white border border-brand-primary/20 rounded-lg w-full outline-none box-border focus:border-brand-primary/50 transition-colors";
 
 export default function PaymentModalExtend({ booking, onClose, onSuccess, lang }) {
   useEscapeToClose(true, onClose);
+  const dialogRef = useRef(null);
+  useModalA11y(true, dialogRef);
 
   const [selectedPackage, setSelectedPackage] = useState('24');
   const [quantity, setQuantity] = useState(1);
@@ -130,10 +133,12 @@ export default function PaymentModalExtend({ booking, onClose, onSuccess, lang }
   return (
     <div className="fixed inset-0 bg-[rgba(5,8,16,0.9)] backdrop-blur-sm flex justify-center items-center z-[10000] p-4">
       <div
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={lang === 'en' ? 'Extend rental' : 'Mag-extend ng arkila'}
-        className="bg-[#111827]/95 backdrop-blur-xl border border-brand-primary/15 rounded-[20px] p-8 w-full max-w-[420px] box-border max-h-[90vh] overflow-y-auto shadow-[0_25px_50px_-12px_rgba(0,0,0,0.6)] animate-[fadeInEffect_0.25s_ease-out]"
+        className="bg-[#111827]/95 backdrop-blur-xl border border-brand-primary/15 rounded-[20px] p-8 w-full max-w-[420px] box-border max-h-[90vh] overflow-y-auto shadow-[0_25px_50px_-12px_rgba(0,0,0,0.6)] animate-[fadeInEffect_0.25s_ease-out] outline-none"
       >
         <h2 className="font-display text-brand-primary m-0 mb-2.5 text-xl font-bold">{lang === 'en' ? 'Extend Rental' : 'Mag-extend ng Arkila'}</h2>
         <p className="text-brand-muted text-[0.85rem] mb-5">
@@ -156,8 +161,8 @@ export default function PaymentModalExtend({ booking, onClose, onSuccess, lang }
 
           <div className="flex gap-2.5">
             <div className="flex-[2]">
-              <label className={labelClass}>{lang === 'en' ? 'Promo Package' : 'Promo Package'}</label>
-              <select value={selectedPackage} onChange={(e) => setSelectedPackage(e.target.value)} className={inputClass}>
+              <label htmlFor="pme-package" className={labelClass}>{lang === 'en' ? 'Promo Package' : 'Promo Package'}</label>
+              <select id="pme-package" value={selectedPackage} onChange={(e) => setSelectedPackage(e.target.value)} className={inputClass}>
                 <option value="24">24 Hours (1 Day) — ₱{rates['24']}</option>
                 <option value="12">12 Hours — ₱{rates['12']}</option>
                 <option value="6">6 Hours — ₱{rates['6']}</option>
@@ -166,8 +171,8 @@ export default function PaymentModalExtend({ booking, onClose, onSuccess, lang }
             </div>
 
             <div className="flex-1">
-              <label className={labelClass}>{lang === 'en' ? 'Quantity' : 'Dami'}</label>
-              <select value={quantity} onChange={(e) => setQuantity(parseInt(e.target.value))} className={inputClass}>
+              <label htmlFor="pme-quantity" className={labelClass}>{lang === 'en' ? 'Quantity' : 'Dami'}</label>
+              <select id="pme-quantity" value={quantity} onChange={(e) => setQuantity(parseInt(e.target.value))} className={inputClass}>
                 {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(num => (
                   <option key={num} value={num}>x{num}</option>
                 ))}
@@ -176,8 +181,8 @@ export default function PaymentModalExtend({ booking, onClose, onSuccess, lang }
           </div>
 
           <div>
-            <label className={labelClass}>{lang === 'en' ? 'Payment Method' : 'Paraan ng Bayad sa Extension'}</label>
-            <select value={paymentMethod} onChange={(e) => {
+            <label htmlFor="pme-payment-method" className={labelClass}>{lang === 'en' ? 'Payment Method' : 'Paraan ng Bayad sa Extension'}</label>
+            <select id="pme-payment-method" value={paymentMethod} onChange={(e) => {
               setPaymentMethod(e.target.value);
               if (e.target.value === 'eWallet') setActiveQR('gcash');
             }} className={inputClass}>
@@ -221,8 +226,8 @@ export default function PaymentModalExtend({ booking, onClose, onSuccess, lang }
               )}
 
               <div>
-                <label className={labelClass}>{lang === 'en' ? 'Upload Extension Receipt' : 'I-upload ang Resibo ng Extension'}</label>
-                <input type="file" accept="image/*" required onChange={(e) => setFile(e.target.files[0])} className="text-brand-muted text-[0.8rem] w-full file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-brand-primary file:text-brand-bg file:font-bold file:cursor-pointer" />
+                <label htmlFor="pme-receipt-file" className={labelClass}>{lang === 'en' ? 'Upload Extension Receipt' : 'I-upload ang Resibo ng Extension'}</label>
+                <input id="pme-receipt-file" type="file" accept="image/*" required onChange={(e) => setFile(e.target.files[0])} className="text-brand-muted text-[0.8rem] w-full file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-brand-primary file:text-brand-bg file:font-bold file:cursor-pointer" />
               </div>
             </div>
           )}

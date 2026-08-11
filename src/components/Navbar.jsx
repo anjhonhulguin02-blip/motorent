@@ -1,15 +1,19 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import useEscapeToClose from '../hooks/useEscapeToClose';
 
-export default function Navbar({
-  activeTab,
-  setActiveTab,
-  user,
-  setUser,
-  onAuthClick,
-  isAdmin
-}) {
+const NAV_LINKS = [
+  { path: '/', label: 'Home' },
+  { path: '/bikes', label: 'Bikes' },
+  { path: '/guidelines', label: 'Guidelines' },
+  { path: '/reviews', label: 'Reviews' },
+  { path: '/contact', label: 'Contact' }
+];
+
+export default function Navbar({ user, onAuthClick, isAdmin }) {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef(null);
@@ -39,18 +43,20 @@ export default function Navbar({
 
   useEscapeToClose(isMenuOpen, () => setIsMenuOpen(false));
 
+  const goTo = (path) => {
+    navigate(path);
+    setIsMenuOpen(false);
+  };
+
   const handleBrandClick = () => {
+    navigate('/');
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    setActiveTab('home');
     setIsMenuOpen(false);
   };
 
   const handleLogout = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (!error) {
-      if (setUser) setUser(null);
-      setActiveTab('home');
-    }
+    await supabase.auth.signOut();
+    navigate('/');
     setIsMenuOpen(false);
   };
 
@@ -84,17 +90,17 @@ export default function Navbar({
 
       {/* Desktop Navigation */}
       <nav className="hidden lg:flex items-center gap-1">
-        <button onClick={() => setActiveTab('home')} className={desktopLinkClass(activeTab === 'home')}>Home</button>
-        <button onClick={() => setActiveTab('bikes')} className={desktopLinkClass(activeTab === 'bikes')}>Bikes</button>
-        <button onClick={() => setActiveTab('about')} className={desktopLinkClass(activeTab === 'about')}>Guidelines</button>
-        <button onClick={() => setActiveTab('reviews')} className={desktopLinkClass(activeTab === 'reviews')}>Reviews</button>
-        <button onClick={() => setActiveTab('contact')} className={desktopLinkClass(activeTab === 'contact')}>Contact</button>
+        {NAV_LINKS.map((link) => (
+          <button key={link.path} onClick={() => goTo(link.path)} className={desktopLinkClass(location.pathname === link.path)}>
+            {link.label}
+          </button>
+        ))}
 
         {user && !isAdmin && (
-          <button onClick={() => setActiveTab('dashboard')} className={desktopLinkClass(activeTab === 'dashboard')}>My Bookings</button>
+          <button onClick={() => goTo('/dashboard')} className={desktopLinkClass(location.pathname === '/dashboard')}>My Bookings</button>
         )}
         {user && isAdmin && (
-          <button onClick={() => setActiveTab('admin')} className={`${desktopLinkClass(activeTab === 'admin')} text-brand-primary`}>Admin Panel</button>
+          <button onClick={() => goTo('/admin')} className={`${desktopLinkClass(location.pathname === '/admin')} text-brand-primary`}>Admin Panel</button>
         )}
       </nav>
 
@@ -139,17 +145,17 @@ export default function Navbar({
 
           {isMenuOpen && (
             <div className="absolute top-[calc(100%+12px)] right-0 w-60 bg-brand-card/95 backdrop-blur-xl border border-white/10 rounded-2xl p-2.5 shadow-[0_25px_50px_-15px_rgba(0,0,0,0.7)] flex flex-col gap-1 z-[100000] animate-[fadeInEffect_0.2s_ease-out]">
-              <button onClick={() => { setActiveTab('home'); setIsMenuOpen(false); }} className={mobileLinkClass(activeTab === 'home')}>Home</button>
-              <button onClick={() => { setActiveTab('bikes'); setIsMenuOpen(false); }} className={mobileLinkClass(activeTab === 'bikes')}>Bikes</button>
-              <button onClick={() => { setActiveTab('about'); setIsMenuOpen(false); }} className={mobileLinkClass(activeTab === 'about')}>Guidelines</button>
-              <button onClick={() => { setActiveTab('reviews'); setIsMenuOpen(false); }} className={mobileLinkClass(activeTab === 'reviews')}>Reviews</button>
-              <button onClick={() => { setActiveTab('contact'); setIsMenuOpen(false); }} className={mobileLinkClass(activeTab === 'contact')}>Contact</button>
+              {NAV_LINKS.map((link) => (
+                <button key={link.path} onClick={() => goTo(link.path)} className={mobileLinkClass(location.pathname === link.path)}>
+                  {link.label}
+                </button>
+              ))}
 
               {user && !isAdmin && (
-                <button onClick={() => { setActiveTab('dashboard'); setIsMenuOpen(false); }} className={mobileLinkClass(activeTab === 'dashboard')}>My Bookings</button>
+                <button onClick={() => goTo('/dashboard')} className={mobileLinkClass(location.pathname === '/dashboard')}>My Bookings</button>
               )}
               {user && isAdmin && (
-                <button onClick={() => { setActiveTab('admin'); setIsMenuOpen(false); }} className={mobileLinkClass(activeTab === 'admin')}>Admin Dashboard</button>
+                <button onClick={() => goTo('/admin')} className={mobileLinkClass(location.pathname === '/admin')}>Admin Dashboard</button>
               )}
 
               <div className="h-px bg-white/[0.08] my-1.5"></div>

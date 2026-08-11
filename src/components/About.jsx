@@ -1,6 +1,6 @@
 import React from 'react';
 // Import ng iyong Canva background para maging parehas sila ng Home at Bikes Tab!
-import mainWebsiteBg from '../assets/BG.png';
+import mainWebsiteBg from '../assets/BG.jpg';
 
 const REQUIREMENT_CARDS = (lang) => [
   {
@@ -92,7 +92,7 @@ export default function About({ lang }) {
   return (
     <section
       id="about"
-      className="w-full min-h-screen flex flex-col items-center bg-[#0f172a] bg-cover bg-center bg-no-repeat box-border relative p-4 sm:p-8 animate-[fadeInEffect_0.5s_ease-out_forwards]"
+      className="w-full min-h-[60vh] flex flex-col items-center bg-[#0f172a] bg-cover bg-center bg-no-repeat box-border relative p-4 sm:p-8 animate-[fadeInEffect_0.5s_ease-out_forwards]"
       style={{ backgroundImage: `url(${mainWebsiteBg})` }}
     >
       <div className="absolute top-0 left-0 w-full h-[90px] bg-transparent z-10" />

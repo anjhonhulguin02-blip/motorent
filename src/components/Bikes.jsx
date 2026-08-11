@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
-import mainWebsiteBg from '../assets/BG.png';
+import mainWebsiteBg from '../assets/BG.jpg';
 import MotorcycleDetailModal from './MotorcycleDetailModal';
 
 // 🏍️ Local fallback photos — used only for motors that don't have an
@@ -9,7 +9,7 @@ import nmaxImg from '../assets/Bikes/nmaxv3.jpg';
 import aeroxImg from '../assets/Bikes/aeroxv3.jpg';
 import clickImg from '../assets/Bikes/click125.jpg';
 import beatImg from '../assets/Bikes/beat.jpg';
-import fazzioImg from '../assets/Bikes/fazzio.png';
+import fazzioImg from '../assets/Bikes/fazzio.jpg';
 import mioImg from '../assets/Bikes/mio i 125.jpg';
 
 function getFallbackImage(name) {
@@ -98,7 +98,7 @@ export default function Bikes({ onRentClick, activeRentals = [] }) {
         ) : motors.length === 0 ? (
           <div className="text-center py-16 text-brand-muted text-sm">No motorcycles available right now.</div>
         ) : (
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(260px,1fr))] gap-6 sm:gap-8 w-full">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 w-full">
           {motors.map((motor) => {
             const displayImg = motor.image_url || getFallbackImage(motor.name);
             const isRented = computeIsRented(motor);
@@ -115,6 +115,7 @@ export default function Bikes({ onRentClick, activeRentals = [] }) {
                     <img
                       src={displayImg}
                       alt={motor.name}
+                      loading="lazy"
                       className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
                       style={{
                         filter: isRented ? 'blur(4px) grayscale(100%) opacity(45%)' : 'none',
