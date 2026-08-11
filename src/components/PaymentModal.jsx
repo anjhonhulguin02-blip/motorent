@@ -16,7 +16,7 @@ export default function PaymentModal({ isOpen, onClose, bikeData, user, onSucces
   const [duration, setDuration] = useState(1);
   const [gateway, setGateway] = useState('GCash');
 
-  // Payment Structure Options ('Full Payment', 'Down Payment (50%)', or 'Custom Reservation Fee')
+  // Payment Structure Options ('Full Payment', 'Down Payment (30%)', or 'Custom Reservation Fee')
   const [paymentType, setPaymentType] = useState('Full Payment');
   const [customAmount, setCustomAmount] = useState(150); // Default custom down payment initial value
 
@@ -66,8 +66,8 @@ export default function PaymentModal({ isOpen, onClose, bikeData, user, onSucces
   // MATHEMATICAL MATRIX LOGIC FOR CUSTOM VALUES
   let amountToPayNow = grandTotal;
   if (gateway !== 'Cash') {
-    if (paymentType === 'Down Payment (50%)') {
-      amountToPayNow = grandTotal * 0.5;
+    if (paymentType === 'Down Payment (30%)') {
+      amountToPayNow = grandTotal * 0.3;
     } else if (paymentType === 'Custom Reservation Fee') {
       amountToPayNow = Math.min(Number(customAmount) || 0, grandTotal);
     }
@@ -340,7 +340,7 @@ export default function PaymentModal({ isOpen, onClose, bikeData, user, onSucces
               <label className="text-[0.8rem] text-slate-300 font-semibold">Payment Option Structure:</label>
               <select value={paymentType} onChange={(e) => setPaymentType(e.target.value)} className={selectClass}>
                 <option value="Full Payment">Pay Full Amount Upfront (100%)</option>
-                <option value="Down Payment (50%)">Secure via Down Payment (50%)</option>
+                <option value="Down Payment (30%)">Secure via Down Payment (30%)</option>
                 <option value="Custom Reservation Fee">Custom Reservation / Down Payment Amount</option>
               </select>
             </div>

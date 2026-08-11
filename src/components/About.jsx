@@ -16,13 +16,75 @@ const REQUIREMENT_CARDS = (lang) => [
     desc: lang === 'en'
       ? 'Provide 1 additional Valid Government ID (e.g., UMID, SSS, Passport, PRC) for secondary verification.'
       : 'Magdala ng 1 karagdagang Valid Government ID (hal. UMID, SSS, Passport, PRC) para sa pangalawang pagpapatunay.'
+  }
+];
+
+// Totoong patakaran ng negosyo — hindi ginawa-gawa, direktang galing sa
+// business owner. Kung magbabago ang kahit alin dito sa totoong buhay,
+// dito lang dapat i-edit.
+const POLICY_CARDS = (lang) => [
+  {
+    icon: '💰',
+    title: lang === 'en' ? 'Deposit' : 'Deposit',
+    desc: lang === 'en'
+      ? 'A 30% deposit of your total rental cost secures your booking. The remaining balance is settled upon pickup.'
+      : 'Isang 30% deposit ng kabuuang halaga ng renta ang kailangan para ma-secure ang booking mo. Babayaran ang natitirang balanse sa araw ng pagkuha.'
+  },
+  {
+    icon: '🪖',
+    title: lang === 'en' ? 'Helmet' : 'Helmet',
+    desc: lang === 'en'
+      ? '1 helmet is included with every rental. Riding with a passenger? An extra helmet is available to rent for ₱150.'
+      : 'Isang helmet ang kasama sa bawat renta. May kasama ka bang sasakay? Puwede kang mag-rent ng dagdag na helmet sa halagang ₱150.'
+  },
+  {
+    icon: '🕐',
+    title: lang === 'en' ? 'Minimum Rental' : 'Pinakamaikling Renta',
+    desc: lang === 'en'
+      ? 'Our shortest package is Per Hour — book by the hour, half-day, or full day, whichever fits your trip.'
+      : 'Ang pinakamaikling package namin ay Per Hour — pumili ka ng oras, kalahating araw, o buong araw, kung alin ang bagay sa iyong biyahe.'
+  },
+  {
+    icon: '🛣️',
+    title: lang === 'en' ? 'Mileage' : 'Mileage',
+    desc: lang === 'en'
+      ? 'No mileage limit — ride as far as your trip takes you.'
+      : 'Walang mileage limit — sumakay ka kahit gaano kalayo ang kailangan mo.'
   },
   {
     icon: '⛽',
     title: lang === 'en' ? 'Fuel Policy' : 'Patakaran sa Gasolina',
     desc: lang === 'en'
-      ? 'Gasoline is NOT included in the rental price. The unit will be handed over with gas, and must be returned with the same level.'
-      : 'Ang gasolina ay HINDI kasama sa presyo ng renta. Ibibigay ang motor na may gas, at kailangang ibalik na may parehong rami ng gas.'
+      ? 'Gasoline is not included in the rental price. The unit is handed over at a certain fuel level and must be returned at that same level.'
+      : 'Ang gasolina ay hindi kasama sa presyo ng renta. Ibibigay ang motor na may partikular na dami ng gas, at kailangang ibalik na may parehong dami.'
+  },
+  {
+    icon: '📍',
+    title: lang === 'en' ? 'Pickup & Return' : 'Pagkuha at Pagbalik',
+    desc: lang === 'en'
+      ? 'Units are picked up and returned at our hub in Norzagaray, Bulacan — see the Contact page for the exact address and map.'
+      : 'Kinukuha at ibinabalik ang mga unit sa aming hub sa Norzagaray, Bulacan — tingnan ang Contact page para sa eksaktong address at mapa.'
+  },
+  {
+    icon: '🚨',
+    title: lang === 'en' ? 'Late Return' : 'Late na Pagbalik',
+    desc: lang === 'en'
+      ? "Returning late without arranging an extension is charged an hourly late fee at the unit's per-hour rate."
+      : 'Kapag late na-return nang walang extension, sisingilin ng hourly late fee base sa per-hour rate ng unit.'
+  },
+  {
+    icon: '❌',
+    title: lang === 'en' ? 'Cancellation' : 'Cancellation',
+    desc: lang === 'en'
+      ? 'The 30% deposit is non-refundable once a booking is cancelled — please choose your unit and schedule carefully before confirming.'
+      : 'Hindi na marerefund ang 30% deposit kapag na-cancel na ang booking — pakisiguro munang mabuti ang pili mong unit at schedule bago i-confirm.'
+  },
+  {
+    icon: '🔍',
+    title: lang === 'en' ? 'Damage Responsibility' : 'Pananagutan sa Sira',
+    desc: lang === 'en'
+      ? 'Every unit is inspected before your rental is marked complete. Any damage found is the responsibility of the renter.'
+      : 'Ine-inspect ang bawat unit bago tapusin ang renta. Kung may masirang bahagi, pananagutan ito ng umarkila.'
   }
 ];
 
@@ -49,19 +111,24 @@ export default function About({ lang }) {
           </p>
         </div>
 
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-8 w-full">
+        <span className="eyebrow block mb-4">{lang === 'en' ? 'Requirements to Rent' : 'Kailangan Bago Umarkila'}</span>
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-6 w-full mb-14">
           {REQUIREMENT_CARDS(lang).map((card) => (
-            <div
-              key={card.title}
-              className="glass-card glass-card-hover p-8 sm:p-10 text-center"
-            >
+            <div key={card.title} className="glass-card glass-card-hover p-8 text-center">
               <div className="text-5xl mb-4">{card.icon}</div>
-              <h3 className="font-display text-xl mb-4 text-brand-primary font-bold">
-                {card.title}
-              </h3>
-              <p className="text-[0.95rem] text-brand-muted leading-relaxed m-0">
-                {card.desc}
-              </p>
+              <h3 className="font-display text-xl mb-3 text-brand-primary font-bold">{card.title}</h3>
+              <p className="text-[0.95rem] text-brand-muted leading-relaxed m-0">{card.desc}</p>
+            </div>
+          ))}
+        </div>
+
+        <span className="eyebrow block mb-4">{lang === 'en' ? 'Rental Policies' : 'Mga Patakaran sa Pag-arkila'}</span>
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(260px,1fr))] gap-6 w-full">
+          {POLICY_CARDS(lang).map((card) => (
+            <div key={card.title} className="glass-card p-7 text-left">
+              <div className="text-3xl mb-3">{card.icon}</div>
+              <h3 className="font-display text-base mb-2 text-brand-primary font-bold">{card.title}</h3>
+              <p className="text-[0.88rem] text-brand-muted leading-relaxed m-0">{card.desc}</p>
             </div>
           ))}
         </div>

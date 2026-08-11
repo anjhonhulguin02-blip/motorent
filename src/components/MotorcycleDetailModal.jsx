@@ -4,7 +4,6 @@ import useEscapeToClose from '../hooks/useEscapeToClose';
 const specRowClass = "flex flex-col gap-0.5 bg-white/[0.03] border border-white/5 rounded-xl px-4 py-3";
 const specLabelClass = "text-[0.68rem] text-brand-muted font-bold uppercase tracking-wider";
 const specValueClass = "text-white font-semibold text-sm";
-const specUnknownClass = "text-slate-500 font-medium text-sm italic";
 
 export default function MotorcycleDetailModal({ motor, isOpen, onClose, isRented, onRentClick, resolvedImage }) {
   useEscapeToClose(isOpen && !!motor, onClose);
@@ -13,12 +12,14 @@ export default function MotorcycleDetailModal({ motor, isOpen, onClose, isRented
 
   const displayImg = motor.image_url || resolvedImage;
 
+  // Only real, admin-entered specs are shown — a field with no verified
+  // value is left out entirely rather than filled with a placeholder.
   const specs = [
     { label: 'Engine', value: motor.engine_size },
     { label: 'Transmission', value: motor.transmission },
     { label: 'Fuel Capacity', value: motor.fuel_capacity },
     { label: 'Weight', value: motor.weight }
-  ];
+  ].filter((s) => s.value);
 
   const rates = [
     { label: '24 Hours', value: motor.rate_24hr },
@@ -63,19 +64,19 @@ export default function MotorcycleDetailModal({ motor, isOpen, onClose, isRented
             <p className="text-sm text-slate-300 leading-relaxed m-0">{motor.description}</p>
           )}
 
-          <div>
-            <span className="eyebrow block mb-2">Specifications</span>
-            <div className="grid grid-cols-2 gap-2.5">
-              {specs.map((s) => (
-                <div key={s.label} className={specRowClass}>
-                  <span className={specLabelClass}>{s.label}</span>
-                  <span className={s.value ? specValueClass : specUnknownClass}>
-                    {s.value || 'Contact us for details'}
-                  </span>
-                </div>
-              ))}
+          {specs.length > 0 && (
+            <div>
+              <span className="eyebrow block mb-2">Specifications</span>
+              <div className="grid grid-cols-2 gap-2.5">
+                {specs.map((s) => (
+                  <div key={s.label} className={specRowClass}>
+                    <span className={specLabelClass}>{s.label}</span>
+                    <span className={specValueClass}>{s.value}</span>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           <div>
             <span className="eyebrow block mb-2">Rental Rates</span>
