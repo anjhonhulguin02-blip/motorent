@@ -1,4 +1,5 @@
 import React, { useRef } from 'react';
+import { createPortal } from 'react-dom';
 import useEscapeToClose from '../hooks/useEscapeToClose';
 import useModalA11y from '../hooks/useModalA11y';
 
@@ -12,7 +13,7 @@ export default function PrivacyPolicyModal({ isOpen, onClose }) {
 
   if (!isOpen) return null;
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 bg-[rgba(15,23,42,0.85)] backdrop-blur-md flex items-center justify-center z-[100002] p-4" onClick={onClose}>
       <div
         ref={dialogRef}
@@ -57,6 +58,7 @@ export default function PrivacyPolicyModal({ isOpen, onClose }) {
           This notice is provided for transparency about our own data practices. It is not legal advice and does not by itself guarantee compliance with the Philippines' Data Privacy Act of 2012 or any other applicable law. Consult a qualified lawyer for a legally reviewed privacy policy.
         </p>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

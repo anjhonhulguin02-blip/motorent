@@ -1,4 +1,5 @@
 import React, { useRef } from 'react';
+import { createPortal } from 'react-dom';
 import useEscapeToClose from '../hooks/useEscapeToClose';
 import useModalA11y from '../hooks/useModalA11y';
 
@@ -13,7 +14,7 @@ export default function ConfirmDialog({ confirmState, onCancel }) {
   if (!confirmState) return null;
   const { message, onConfirm, confirmLabel, danger } = confirmState;
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 bg-[rgba(5,8,16,0.85)] backdrop-blur-md flex items-center justify-center z-[100001] p-4"
       onClick={onCancel}
@@ -45,6 +46,7 @@ export default function ConfirmDialog({ confirmState, onCancel }) {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

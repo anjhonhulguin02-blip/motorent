@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { supabase } from '../supabaseClient';
 import useEscapeToClose from '../hooks/useEscapeToClose';
 import useModalA11y from '../hooks/useModalA11y';
@@ -227,7 +228,7 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, lang, isRec
     buttonText = lang === 'en' ? 'Login Securely' : 'Ligtas na Pumasok';
   }
 
-  return (
+  return createPortal(
     <div
       onClick={onClose}
       className="fixed inset-0 w-screen h-screen bg-[rgba(10,14,22,0.8)] backdrop-blur-lg flex items-center justify-center z-[9999]"
@@ -482,6 +483,7 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, lang, isRec
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

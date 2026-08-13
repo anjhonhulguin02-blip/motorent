@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { supabase } from '../supabaseClient';
 import useEscapeToClose from '../hooks/useEscapeToClose';
 import useModalA11y from '../hooks/useModalA11y';
@@ -130,7 +131,7 @@ export default function PaymentModalExtend({ booking, onClose, onSuccess, lang }
     }
   };
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 bg-[rgba(5,8,16,0.9)] backdrop-blur-sm flex justify-center items-center z-[10000] p-4">
       <div
         ref={dialogRef}
@@ -250,6 +251,7 @@ export default function PaymentModalExtend({ booking, onClose, onSuccess, lang }
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

@@ -1,4 +1,5 @@
 import React, { useRef } from 'react';
+import { createPortal } from 'react-dom';
 import useEscapeToClose from '../hooks/useEscapeToClose';
 import useModalA11y from '../hooks/useModalA11y';
 
@@ -31,7 +32,7 @@ export default function MotorcycleDetailModal({ motor, isOpen, onClose, isRented
     { label: 'Per Hour', value: motor.rate_1hr }
   ];
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 bg-[rgba(15,23,42,0.85)] backdrop-blur-md flex items-center justify-center z-[9999] p-4" onClick={onClose}>
       <div
         ref={dialogRef}
@@ -112,6 +113,7 @@ export default function MotorcycleDetailModal({ motor, isOpen, onClose, isRented
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
