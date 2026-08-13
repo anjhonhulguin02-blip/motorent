@@ -255,7 +255,7 @@ export default function PaymentModal({ isOpen, onClose, bikeData, user, onRequir
   }[currentStep];
 
   return createPortal(
-    <div className="fixed inset-0 bg-[rgba(15,23,42,0.85)] backdrop-blur-md flex items-center justify-center z-[9999] p-4">
+    <div className="fixed inset-0 bg-[rgba(15,23,42,0.85)] backdrop-blur-md flex items-center justify-center z-[100000] p-4">
       <div
         ref={dialogRef}
         tabIndex={-1}

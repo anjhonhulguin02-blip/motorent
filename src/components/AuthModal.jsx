@@ -231,7 +231,7 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, lang, isRec
   return createPortal(
     <div
       onClick={onClose}
-      className="fixed inset-0 w-screen h-screen bg-[rgba(10,14,22,0.8)] backdrop-blur-lg flex items-center justify-center z-[9999]"
+      className="fixed inset-0 w-screen h-screen bg-[rgba(10,14,22,0.8)] backdrop-blur-lg flex items-center justify-center z-[100000]"
     >
       <div
         ref={dialogRef}

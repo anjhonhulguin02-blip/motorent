@@ -311,7 +311,7 @@ export default function AdminFleetManager() {
       )}
 
       {showForm && (
-        <div className="fixed inset-0 bg-[rgba(5,8,16,0.85)] backdrop-blur-md flex justify-center items-center z-[9999] p-4" onClick={closeForm}>
+        <div className="fixed inset-0 bg-[rgba(5,8,16,0.85)] backdrop-blur-md flex justify-center items-center z-[100000] p-4" onClick={closeForm}>
           <div
             onClick={(e) => e.stopPropagation()}
             role="dialog"

@@ -132,7 +132,7 @@ export default function PaymentModalExtend({ booking, onClose, onSuccess, lang }
   };
 
   return createPortal(
-    <div className="fixed inset-0 bg-[rgba(5,8,16,0.9)] backdrop-blur-sm flex justify-center items-center z-[10000] p-4">
+    <div className="fixed inset-0 bg-[rgba(5,8,16,0.9)] backdrop-blur-sm flex justify-center items-center z-[100000] p-4">
       <div
         ref={dialogRef}
         tabIndex={-1}

@@ -645,7 +645,7 @@ export default function Dashboard({ user, lang }) {
       )}
 
       {selectedBookingForReview && (
-        <div className="fixed inset-0 bg-[rgba(5,8,16,0.85)] backdrop-blur-md flex justify-center items-center z-[9999] p-4">
+        <div className="fixed inset-0 bg-[rgba(5,8,16,0.85)] backdrop-blur-md flex justify-center items-center z-[100000] p-4">
           <div className="bg-brand-card/95 backdrop-blur-xl border border-brand-primary/15 rounded-3xl p-8 w-full max-w-[420px] box-border shadow-[0_0_0_1px_rgba(234,169,116,0.04),0_30px_60px_rgba(0,0,0,0.6)] animate-[fadeInEffect_0.25s_ease-out]">
             <h3 className="font-display mb-1 text-white text-[1.3rem] font-bold">Write a Review</h3>
             <p className="mb-6 text-brand-muted text-[0.8rem]">Unit: {selectedBookingForReview?.motorcycle_name || 'Unit'}</p>
