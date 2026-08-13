@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../supabaseClient';
 import useEscapeToClose from '../hooks/useEscapeToClose';
@@ -62,7 +62,6 @@ export default function PaymentModal({ isOpen, onClose, bikeData, user, onRequir
       setAwaitingLogin(false);
       handleConfirmBookingRef.current();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, awaitingLogin]);
 
   // SAFETY GUARD 1: Pipigilan nito ang pag-crash ng app kung sakaling delay pumasok ang data ng motor

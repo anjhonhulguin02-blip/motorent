@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import mainWebsiteBg from '../assets/BG.jpg';
 import PrivacyPolicyModal from './PrivacyPolicyModal';
 

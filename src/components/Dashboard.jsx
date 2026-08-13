@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import mainWebsiteBg from '../assets/BG.jpg';
 import PaymentModalExtend from './PaymentModalExtend';
@@ -38,7 +38,7 @@ export default function Dashboard({ user, lang }) {
     try {
       const saved = localStorage.getItem(`hidden_bookings_${user?.id || 'guest'}`);
       return saved ? JSON.parse(saved) : [];
-    } catch (e) {
+    } catch {
       return [];
     }
   });
@@ -60,7 +60,7 @@ export default function Dashboard({ user, lang }) {
     return new Date(startDate.getTime() + baseHours * multiplier * 60 * 60 * 1000);
   };
 
-  const fetchMyBookings = async () => {
+  const fetchMyBookings = useCallback(async () => {
     setLoading(true);
     try {
       let activeId = user?.id;
@@ -83,9 +83,9 @@ export default function Dashboard({ user, lang }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
 
-  const fetchReviewedBookings = async () => {
+  const fetchReviewedBookings = useCallback(async () => {
     try {
       let activeId = user?.id;
       if (!activeId) {
@@ -104,14 +104,14 @@ export default function Dashboard({ user, lang }) {
     } catch (err) {
       console.error(err);
     }
-  };
+  }, [user]);
 
   useEffect(() => {
     fetchMyBookings();
     fetchReviewedBookings();
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
-  }, [user]);
+  }, [fetchMyBookings, fetchReviewedBookings]);
 
   const handleIDUpload = async (e, bookingId) => {
     const file = e.target.files[0];

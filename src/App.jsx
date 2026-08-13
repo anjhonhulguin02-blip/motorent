@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Suspense, lazy } from 'react';
+import { useState, useEffect, Suspense, lazy } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation, useParams } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
@@ -58,7 +58,9 @@ function BookingRoute({ selectedBikeForRent, onHydrate, onRentClick, activeRenta
 export default function App() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [lang, setLang] = useState('en');
+  // Bilingual (EN/TL) copy is written throughout the app, but there's no
+  // language switcher yet — the site is English-only for now.
+  const lang = 'en';
   const [user, setUser] = useState(null);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [isRecoveryMode, setIsRecoveryMode] = useState(false);
@@ -285,7 +287,7 @@ export default function App() {
             element={
               user && isAdmin ? (
                 <Suspense fallback={<ScreenLoadingFallback />}>
-                  <AdminDashboard onStatusUpdate={handleStatusUpdate} lang={lang} />
+                  <AdminDashboard onStatusUpdate={handleStatusUpdate} />
                 </Suspense>
               ) : (
                 <Navigate to="/" replace />

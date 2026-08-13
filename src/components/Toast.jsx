@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 
 // Reusable non-blocking notification — pinapalitan ang native alert() sa
 // buong app. Auto-dismiss pagkatapos ng ilang segundo, pwede ring i-dismiss

@@ -1,4 +1,3 @@
-import React from 'react';
 // Import ng iyong Canva background para maging parehas sila ng Home at Bikes Tab!
 import mainWebsiteBg from '../assets/BG.jpg';
 

@@ -76,5 +76,5 @@ export default function useModalA11y(isActive, dialogRef) {
       document.body.style.overflow = previousOverflow;
       triggerRef.current?.focus?.();
     };
-  }, [isActive]);
+  }, [isActive, dialogRef]);
 }

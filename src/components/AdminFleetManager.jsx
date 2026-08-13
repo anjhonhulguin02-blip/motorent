@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import Toast from './Toast';
 import ConfirmDialog from './ConfirmDialog';

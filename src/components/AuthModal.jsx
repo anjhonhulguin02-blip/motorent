@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../supabaseClient';
 import useEscapeToClose from '../hooks/useEscapeToClose';
@@ -204,7 +204,7 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, lang, isRec
   const phoneInvalid = isSignUp && phoneNumber.length > 0 && !formatPhNumber(phoneNumber);
 
   // --- MAS MALINIS NA TEXT VARIABLES ---
-  let headerText = '';
+  let headerText;
   if (isUpdatePassword) {
     headerText = lang === 'en' ? 'Create New Password' : 'Gumawa ng Bagong Password';
   } else if (isForgotPassword) {
@@ -215,7 +215,7 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, lang, isRec
     headerText = lang === 'en' ? 'Welcome Back' : 'Mag-log In';
   }
 
-  let buttonText = '';
+  let buttonText;
   if (loading) {
     buttonText = '...';
   } else if (isUpdatePassword) {

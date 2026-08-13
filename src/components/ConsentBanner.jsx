@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import PrivacyPolicyModal from './PrivacyPolicyModal';
 
 const STORAGE_KEY = 'motorent_consent_ack_v1';
@@ -10,13 +10,15 @@ export default function ConsentBanner({ lang }) {
   useEffect(() => {
     try {
       if (!localStorage.getItem(STORAGE_KEY)) setVisible(true);
-    } catch (e) {
+    } catch {
       setVisible(true);
     }
   }, []);
 
   const acknowledge = () => {
-    try { localStorage.setItem(STORAGE_KEY, '1'); } catch (e) {}
+    // Best-effort only — if localStorage is unavailable (e.g. private
+    // browsing), the banner just reappears next visit, which is fine.
+    try { localStorage.setItem(STORAGE_KEY, '1'); } catch { /* ignore */ }
     setVisible(false);
   };
 

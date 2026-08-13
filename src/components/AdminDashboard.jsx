@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import mainWebsiteBg from '../assets/BG.jpg';
 import AdminFleetManager from './AdminFleetManager';
@@ -30,7 +30,7 @@ const extProofEmptyClass = "flex-1 min-w-[100px] p-2 text-center bg-transparent 
 
 const actionButtonBase = "flex-1 min-w-[140px] py-2.5 px-2 rounded-lg text-[0.8rem] font-bold cursor-pointer transition-colors";
 
-export default function AdminDashboard({ onStatusUpdate, lang }) {
+export default function AdminDashboard({ onStatusUpdate }) {
   const [toast, setToast] = useState(null);
   const [confirmState, setConfirmState] = useState(null);
   const [mainView, setMainView] = useState('bookings');
@@ -48,7 +48,7 @@ export default function AdminDashboard({ onStatusUpdate, lang }) {
     try {
       const saved = localStorage.getItem('admin_hidden_bookings');
       return saved ? JSON.parse(saved) : [];
-    } catch (e) {
+    } catch {
       return [];
     }
   });
