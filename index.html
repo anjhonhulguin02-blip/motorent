@@ -11,6 +11,93 @@
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="MotoRent Bulacan" />
     <meta name="twitter:card" content="summary" />
+    <style>
+      /* Critical, inline CSS for the boot splash — must paint before any
+         external stylesheet or JS loads, so it can't depend on Tailwind. */
+      #boot-splash {
+        position: fixed;
+        inset: 0;
+        z-index: 999999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #0a0f1c;
+        transition: opacity 0.5s ease, visibility 0.5s ease;
+      }
+      #boot-splash.boot-splash-hide {
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+      }
+      .boot-splash-glow {
+        position: absolute;
+        width: 480px;
+        height: 480px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(234, 169, 116, 0.16) 0%, rgba(234, 169, 116, 0) 70%);
+        animation: bootGlowPulse 2.6s ease-in-out infinite;
+      }
+      .boot-splash-content {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 18px;
+      }
+      .boot-splash-logo {
+        font-family: 'Space Grotesk', system-ui, -apple-system, sans-serif;
+        font-size: 2.5rem;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        color: #ffffff;
+        margin: 0;
+        animation: bootFadeUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+      }
+      .boot-splash-logo span {
+        color: #eaa974;
+      }
+      .boot-splash-tagline {
+        font-family: 'Inter', system-ui, sans-serif;
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.25em;
+        text-transform: uppercase;
+        color: #94a3b8;
+        animation: bootFadeUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both;
+      }
+      .boot-splash-bar {
+        width: 140px;
+        height: 3px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.08);
+        overflow: hidden;
+        animation: bootFadeUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both;
+      }
+      .boot-splash-bar-fill {
+        height: 100%;
+        width: 40%;
+        border-radius: 999px;
+        background: linear-gradient(90deg, transparent, #eaa974, transparent);
+        animation: bootBarSweep 1.3s ease-in-out infinite;
+      }
+      @keyframes bootGlowPulse {
+        0%, 100% { opacity: 0.6; transform: scale(1); }
+        50% { opacity: 1; transform: scale(1.08); }
+      }
+      @keyframes bootFadeUp {
+        from { opacity: 0; transform: translateY(8px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      @keyframes bootBarSweep {
+        0% { transform: translateX(-150%); }
+        100% { transform: translateX(350%); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .boot-splash-glow, .boot-splash-logo, .boot-splash-tagline, .boot-splash-bar, .boot-splash-bar-fill {
+          animation: none !important;
+        }
+      }
+    </style>
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -30,6 +117,14 @@
     </script>
   </head>
   <body>
+    <div id="boot-splash" aria-hidden="true">
+      <div class="boot-splash-glow"></div>
+      <div class="boot-splash-content">
+        <p class="boot-splash-logo">MOTO<span>RENT</span></p>
+        <p class="boot-splash-tagline">Norzagaray · Bulacan</p>
+        <div class="boot-splash-bar"><div class="boot-splash-bar-fill"></div></div>
+      </div>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

@@ -5,6 +5,7 @@ import AdminFleetManager from './AdminFleetManager';
 import Toast from './Toast';
 import ConfirmDialog from './ConfirmDialog';
 import useEscapeToClose from '../hooks/useEscapeToClose';
+import LoadingSpinner from './LoadingSpinner';
 
 // 🏍️ IMPORT MGA PICTURES NG MOTOR
 import nmaxImg from '../assets/Bikes/nmaxv3.jpg';
@@ -385,8 +386,8 @@ export default function AdminDashboard({ onStatusUpdate }) {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-screen bg-[#050811] text-brand-primary font-sans">
-        <div className="font-display text-center tracking-wide font-bold text-sm animate-pulse">LOADING COMMAND CENTER...</div>
+      <div className="flex justify-center items-center h-screen bg-[#050811]">
+        <LoadingSpinner label="Loading Command Center" size="lg" />
       </div>
     );
   }

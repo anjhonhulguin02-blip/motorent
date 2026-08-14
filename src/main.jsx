@@ -18,3 +18,16 @@ createRoot(document.getElementById('root')).render(
     </BrowserRouter>
   </StrictMode>,
 )
+
+// The boot splash is static markup in index.html so it paints instantly,
+// before this bundle even finishes loading. Fade it out once React has
+// taken over — rAF twice to guarantee the app's first paint has happened.
+const bootSplash = document.getElementById('boot-splash')
+if (bootSplash) {
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      bootSplash.classList.add('boot-splash-hide')
+      setTimeout(() => bootSplash.remove(), 550)
+    })
+  })
+}

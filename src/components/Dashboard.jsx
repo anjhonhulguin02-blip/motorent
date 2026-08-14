@@ -4,6 +4,7 @@ import mainWebsiteBg from '../assets/BG.jpg';
 import PaymentModalExtend from './PaymentModalExtend';
 import Toast from './Toast';
 import ConfirmDialog from './ConfirmDialog';
+import LoadingSpinner from './LoadingSpinner';
 
 // 🏍️ IMPORT MGA PICTURES NG MOTOR
 import nmaxImg from '../assets/Bikes/nmaxv3.jpg';
@@ -258,8 +259,8 @@ export default function Dashboard({ user, lang }) {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-screen bg-[#050811] text-brand-primary">
-        <div className="text-center tracking-wide font-bold text-sm">LOADING YOUR BOOKINGS...</div>
+      <div className="flex justify-center items-center h-screen bg-[#050811]">
+        <LoadingSpinner label="Loading your bookings" size="lg" />
       </div>
     );
   }

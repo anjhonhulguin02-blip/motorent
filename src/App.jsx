@@ -9,6 +9,7 @@ import Contact from './components/Contact';
 import Footer from './components/Footer';
 import ConsentBanner from './components/ConsentBanner';
 import SEO from './components/SEO';
+import LoadingSpinner from './components/LoadingSpinner';
 import { supabase } from './supabaseClient';
 
 // Code-split the account-gated / modal-only screens — none of these are
@@ -337,8 +338,8 @@ export default function App() {
 
 function ScreenLoadingFallback() {
   return (
-    <div className="flex justify-center items-center min-h-[60vh] text-brand-primary font-sans">
-      <div className="text-center tracking-wide font-bold text-sm animate-pulse">LOADING...</div>
+    <div className="flex justify-center items-center min-h-[60vh]">
+      <LoadingSpinner label="Loading" size="lg" />
     </div>
   );
 }

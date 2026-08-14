@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import mainWebsiteBg from '../assets/BG.jpg';
+import LoadingSpinner from './LoadingSpinner';
 
 export default function Reviews({ lang }) {
   const [reviews, setReviews] = useState([]);
@@ -32,8 +33,8 @@ export default function Reviews({ lang }) {
 
   if (loading) {
     return (
-      <div className="text-center py-20 text-white">
-        <p>⏳ Loading transparency wall...</p>
+      <div className="py-20 flex justify-center">
+        <LoadingSpinner label="Loading reviews" />
       </div>
     );
   }

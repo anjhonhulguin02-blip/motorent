@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import mainWebsiteBg from '../assets/BG.jpg';
 import MotorcycleDetailModal from './MotorcycleDetailModal';
+import LoadingSpinner from './LoadingSpinner';
 
 // 🏍️ Local fallback photos — used only for motors that don't have an
 // admin-uploaded image_url yet (the 6 original launch units).
@@ -94,7 +95,7 @@ export default function Bikes({ onRentClick, activeRentals = [] }) {
         </div>
 
         {loading ? (
-          <div className="text-center py-16 text-brand-muted text-sm">⏳ Loading fleet catalog...</div>
+          <div className="py-16"><LoadingSpinner label="Loading fleet catalog" /></div>
         ) : motors.length === 0 ? (
           <div className="text-center py-16 text-brand-muted text-sm">No motorcycles available right now.</div>
         ) : (

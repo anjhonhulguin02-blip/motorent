@@ -3,6 +3,7 @@ import { supabase } from '../supabaseClient';
 import Toast from './Toast';
 import ConfirmDialog from './ConfirmDialog';
 import useEscapeToClose from '../hooks/useEscapeToClose';
+import LoadingSpinner from './LoadingSpinner';
 
 // 🏍️ Local fallback photos — used only for motors that don't have an
 // admin-uploaded image_url yet (the 6 original launch units).
@@ -220,8 +221,8 @@ export default function AdminFleetManager() {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center py-24 text-brand-primary font-sans">
-        <div className="text-center tracking-wide font-bold text-sm animate-pulse">LOADING FLEET DATA...</div>
+      <div className="flex justify-center items-center py-24">
+        <LoadingSpinner label="Loading fleet data" />
       </div>
     );
   }
