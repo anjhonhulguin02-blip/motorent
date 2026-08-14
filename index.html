@@ -97,6 +97,45 @@
           animation: none !important;
         }
       }
+      .boot-splash-error-icon {
+        animation: bootFadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+      }
+      .boot-splash-error-title {
+        font-family: 'Space Grotesk', system-ui, -apple-system, sans-serif;
+        font-size: 1.3rem;
+        font-weight: 800;
+        color: #ffffff;
+        margin: 0;
+        animation: bootFadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.05s both;
+      }
+      .boot-splash-error-msg {
+        font-family: 'Inter', system-ui, sans-serif;
+        font-size: 0.85rem;
+        color: #94a3b8;
+        max-width: 280px;
+        text-align: center;
+        line-height: 1.5;
+        margin: 0;
+        animation: bootFadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both;
+      }
+      .boot-splash-retry-btn {
+        margin-top: 6px;
+        padding: 10px 28px;
+        border: none;
+        border-radius: 10px;
+        background: linear-gradient(180deg, #f3c69a, #eaa974);
+        color: #0a0f1c;
+        font-family: 'Inter', system-ui, sans-serif;
+        font-weight: 800;
+        font-size: 0.85rem;
+        cursor: pointer;
+        box-shadow: 0 8px 20px -6px rgba(234, 169, 116, 0.4);
+        transition: transform 0.2s ease;
+        animation: bootFadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both;
+      }
+      .boot-splash-retry-btn:hover {
+        transform: translateY(-1px);
+      }
     </style>
     <script type="application/ld+json">
       {
@@ -125,6 +164,41 @@
         <div class="boot-splash-bar"><div class="boot-splash-bar-fill"></div></div>
       </div>
     </div>
+    <script>
+      // Plain, non-module script — runs even if the app bundle below fails
+      // to load at all, which is exactly the case (no/dropped connection)
+      // this is meant to catch. Swaps the splash to a "no connection" state
+      // instead of leaving the loading bar spinning forever.
+      (function () {
+        var handled = false;
+
+        function showBootSplashError() {
+          if (handled) return;
+          var splash = document.getElementById('boot-splash');
+          if (!splash || splash.classList.contains('boot-splash-hide')) return;
+          handled = true;
+          var content = splash.querySelector('.boot-splash-content');
+          if (!content) return;
+          content.innerHTML =
+            '<svg class="boot-splash-error-icon" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#eaa974" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' +
+            '<line x1="1" y1="1" x2="23" y2="23"></line>' +
+            '<path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"></path>' +
+            '<path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"></path>' +
+            '<path d="M10.71 5.05A16 16 0 0 1 22.58 9"></path>' +
+            '<path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"></path>' +
+            '<path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path>' +
+            '<line x1="12" y1="20" x2="12.01" y2="20"></line>' +
+            '</svg>' +
+            '<p class="boot-splash-error-title">No Connection</p>' +
+            '<p class="boot-splash-error-msg">We couldn\'t reach MotoRent. Please check your internet connection and try again.</p>' +
+            '<button class="boot-splash-retry-btn" onclick="window.location.reload()">Retry</button>';
+        }
+
+        if (!navigator.onLine) showBootSplashError();
+        window.addEventListener('offline', showBootSplashError);
+        setTimeout(showBootSplashError, 10000);
+      })();
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
