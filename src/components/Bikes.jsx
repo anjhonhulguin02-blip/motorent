@@ -4,24 +4,23 @@ import mainWebsiteBg from '../assets/BG.jpg';
 import MotorcycleDetailModal from './MotorcycleDetailModal';
 import LoadingSpinner from './LoadingSpinner';
 
-// Background-removed shots, so a unit reads as sitting on the dark card rather
-// than inside a white photo box. Falls back to the original studio photo for any
-// motor without one (e.g. a newly added unit with an admin-uploaded image).
-import nmaxCut from '../assets/Bikes/cutout/nmaxv3.png';
-import aeroxCut from '../assets/Bikes/cutout/aeroxv3.png';
-import clickCut from '../assets/Bikes/cutout/click125.png';
-import beatCut from '../assets/Bikes/cutout/beat.png';
-import fazzioCut from '../assets/Bikes/cutout/fazzio.png';
-import mioCut from '../assets/Bikes/cutout/mio i 125.png';
+// The catalogue uses the original studio photos on their white background —
+// the background-removed cutouts are kept for the homepage hero only.
+import nmaxImg from '../assets/Bikes/nmaxv3.jpg';
+import aeroxImg from '../assets/Bikes/aeroxv3.jpg';
+import clickImg from '../assets/Bikes/click125.jpg';
+import beatImg from '../assets/Bikes/beat.jpg';
+import fazzioImg from '../assets/Bikes/fazzio.jpg';
+import mioImg from '../assets/Bikes/mio i 125.jpg';
 
-function getCutoutImage(name) {
+function getFallbackImage(name) {
   const n = String(name || '').toLowerCase();
-  if (n.includes('nmax')) return nmaxCut;
-  if (n.includes('aerox')) return aeroxCut;
-  if (n.includes('click')) return clickCut;
-  if (n.includes('beat')) return beatCut;
-  if (n.includes('fazzio')) return fazzioCut;
-  if (n.includes('mio')) return mioCut;
+  if (n.includes('nmax')) return nmaxImg;
+  if (n.includes('aerox')) return aeroxImg;
+  if (n.includes('click')) return clickImg;
+  if (n.includes('beat')) return beatImg;
+  if (n.includes('fazzio')) return fazzioImg;
+  if (n.includes('mio')) return mioImg;
   return null;
 }
 
@@ -233,8 +232,7 @@ export default function Bikes({ onRentClick, activeRentals = [] }) {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6 w-full">
               {motors.map((motor) => {
-                const cutout = getCutoutImage(motor.name);
-                const displayImg = cutout || motor.image_url;
+                const displayImg = motor.image_url || getFallbackImage(motor.name);
                 const isRented = computeIsRented(motor);
                 const price = motor[tier.column];
                 const hasPrice = price !== null && price !== undefined && Number(price) > 0;
@@ -254,33 +252,23 @@ export default function Bikes({ onRentClick, activeRentals = [] }) {
                         : 'bg-brand-surface/50 border-white/[0.08] hover:-translate-y-1 hover:border-brand-primary/45 hover:shadow-[0_24px_48px_-16px_rgba(234,169,116,0.2)]'
                     }`}
                   >
-                    {/* Unit photo */}
-                    <div className="relative w-full aspect-[5/4] shrink-0">
-                      <div
-                        className={`absolute bottom-[16%] left-1/2 -translate-x-1/2 w-[58%] h-[9%] rounded-[50%] blur-[26px] pointer-events-none transition-opacity duration-300 ${
-                          isRented ? 'bg-white/10 opacity-40' : 'bg-brand-primary/25'
-                        }`}
-                      />
-                      {/* Absolutely positioned so the photo's own proportions can't
-                          stretch the frame — otherwise each unit's differently-shaped
-                          cutout gives its card a different image height, and the
-                          titles stop lining up across the row. */}
-                      <div className="absolute inset-0 flex items-center justify-center px-5 pt-5">
+                    {/* Unit photo — the studio shot fills the frame on its own
+                        white background, as it did before. Absolutely positioned
+                        so a photo's proportions can't stretch the frame and knock
+                        the titles out of line across a row. */}
+                    <div className="relative w-full aspect-[5/4] shrink-0 overflow-hidden bg-white/[0.03]">
+                      <div className="absolute inset-0">
                         {displayImg ? (
                           <img
                             src={displayImg}
                             alt={motor.name}
                             loading="lazy"
-                            className={`max-w-full max-h-full object-contain transition-all duration-500 ease-out ${
+                            className={`w-full h-full object-cover transition-all duration-500 ease-out ${
                               isRented ? 'grayscale opacity-40' : 'group-hover:scale-[1.04]'
                             }`}
-                            style={{
-                              maskImage: 'linear-gradient(to bottom, black 90%, transparent 100%)',
-                              WebkitMaskImage: 'linear-gradient(to bottom, black 90%, transparent 100%)'
-                            }}
                           />
                         ) : (
-                          <div className="text-brand-muted/40">
+                          <div className="w-full h-full flex items-center justify-center text-brand-muted/40">
                             <BikeGlyph />
                           </div>
                         )}
@@ -375,7 +363,7 @@ export default function Bikes({ onRentClick, activeRentals = [] }) {
         onClose={closeDetail}
         isRented={detailMotor ? computeIsRented(detailMotor) : false}
         onRentClick={onRentClick}
-        resolvedImage={detailMotor ? getCutoutImage(detailMotor.name) : null}
+        resolvedImage={detailMotor ? getFallbackImage(detailMotor.name) : null}
         tier={tier}
         originRect={originRect}
         rating={detailMotor ? ratings[(detailMotor.name || '').toLowerCase().trim()]?.average : null}

@@ -136,20 +136,13 @@ export default function MotorcycleDetailModal({
 
         <div className="overflow-y-auto flex-1">
           {/* Unit photo — the element that carries over from the card */}
-          <div className="relative w-full aspect-[16/10] flex items-center justify-center overflow-hidden">
-            <div className="absolute bottom-[14%] left-1/2 -translate-x-1/2 w-[50%] h-[9%] rounded-[50%] bg-brand-primary/25 blur-[32px] pointer-events-none" />
+          <div className="relative w-full aspect-[16/10] flex items-center justify-center overflow-hidden bg-white/[0.03]">
             {displayImg ? (
               <img
                 ref={imgRef}
                 src={displayImg}
                 alt={motor.name}
-                className={`relative max-w-full max-h-full object-contain p-6 will-change-transform ${isRented ? 'grayscale opacity-45' : ''}`}
-                style={{
-                  // Softens the last sliver, where a faint contact shadow from
-                  // the original studio photo can survive the cutout.
-                  maskImage: 'linear-gradient(to bottom, black 92%, transparent 100%)',
-                  WebkitMaskImage: 'linear-gradient(to bottom, black 92%, transparent 100%)'
-                }}
+                className={`w-full h-full object-cover will-change-transform ${isRented ? 'grayscale opacity-45' : ''}`}
               />
             ) : (
               <div className="text-brand-muted/40"><BikeGlyph /></div>
