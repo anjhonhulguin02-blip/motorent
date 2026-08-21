@@ -144,6 +144,12 @@ export default function MotorcycleDetailModal({
                 src={displayImg}
                 alt={motor.name}
                 className={`relative max-w-full max-h-full object-contain p-6 will-change-transform ${isRented ? 'grayscale opacity-45' : ''}`}
+                style={{
+                  // Softens the last sliver, where a faint contact shadow from
+                  // the original studio photo can survive the cutout.
+                  maskImage: 'linear-gradient(to bottom, black 92%, transparent 100%)',
+                  WebkitMaskImage: 'linear-gradient(to bottom, black 92%, transparent 100%)'
+                }}
               />
             ) : (
               <div className="text-brand-muted/40"><BikeGlyph /></div>
