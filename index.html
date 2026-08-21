@@ -172,8 +172,18 @@
       (function () {
         var handled = false;
 
+        // The app is considered booted once React has rendered into #root.
+        // Checking this (rather than trusting navigator.onLine, which some
+        // browsers report as false even on a working connection) is what stops
+        // a false "No Connection" screen from covering a perfectly fine page.
+        function appBooted() {
+          var root = document.getElementById('root');
+          return !!(root && root.children.length > 0);
+        }
+
         function showBootSplashError() {
           if (handled) return;
+          if (appBooted()) return;
           var splash = document.getElementById('boot-splash');
           if (!splash || splash.classList.contains('boot-splash-hide')) return;
           handled = true;
@@ -194,8 +204,12 @@
             '<button class="boot-splash-retry-btn" onclick="window.location.reload()">Retry</button>';
         }
 
-        if (!navigator.onLine) showBootSplashError();
-        window.addEventListener('offline', showBootSplashError);
+        // Every path gives the app a grace period to finish booting first, so a
+        // brief network blip or a stale onLine flag never hides a working page.
+        if (!navigator.onLine) setTimeout(showBootSplashError, 2500);
+        window.addEventListener('offline', function () {
+          setTimeout(showBootSplashError, 1500);
+        });
         setTimeout(showBootSplashError, 10000);
       })();
     </script>

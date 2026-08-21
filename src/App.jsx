@@ -2,6 +2,7 @@ import { useState, useEffect, Suspense, lazy } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation, useParams } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
+import Destinations from './components/Destinations';
 import Bikes from './components/Bikes';
 import Reviews from './components/Reviews';
 import About from './components/About';
@@ -158,11 +159,6 @@ export default function App() {
     setAuthModalOpen(true);
   };
 
-  // Helper/Wrapper para sa Hero button navigation
-  const handleHeroRentNowNavigation = () => {
-    navigate('/bikes');
-  };
-
   const handleStatusUpdate = () => {
     // Admin refresh trigger callback placeholder
   };
@@ -190,7 +186,8 @@ export default function App() {
                   description="MotoRent offers premium, well-maintained motorcycle rentals in Norzagaray, Bulacan. Book by the hour, half-day, or full day — no mileage limit."
                   path="/"
                 />
-                <Hero setActiveTab={handleHeroRentNowNavigation} lang={lang} />
+                <Hero lang={lang} />
+                <Destinations lang={lang} />
               </>
             }
           />
