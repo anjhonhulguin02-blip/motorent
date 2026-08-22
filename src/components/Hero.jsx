@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import mainWebsiteBg from '../assets/BG.jpg';
+import { pageBackground } from '../pageBackground';
 import { supabase } from '../supabaseClient';
 
 // 🏍️ Background-removed product shots — used for the hero showcase only, so the
@@ -129,18 +129,9 @@ export default function Hero({ lang }) {
   return (
     <section
       id="home"
-      className="w-full min-h-screen flex flex-col justify-center items-center bg-brand-bg bg-cover bg-center bg-no-repeat relative box-border px-4 sm:px-8 pt-[120px] pb-10 overflow-hidden"
-      style={{ backgroundImage: `url(${mainWebsiteBg})` }}
+      className="w-full min-h-screen flex flex-col justify-center items-center bg-brand-bg relative box-border px-4 sm:px-8 pt-[120px] pb-10 overflow-hidden"
+      style={pageBackground}
     >
-      {/* Navy scrim over the background artwork. Without the old glass panels
-          covering it, the raw BG image reads far too bright/blue for a hero the
-          product shot has to sit on — this keeps the texture but restores the
-          dark base the palette is built around. */}
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{ background: 'linear-gradient(to bottom, rgba(10,15,28,0.86) 0%, rgba(10,15,28,0.93) 55%, rgba(10,15,28,0.97) 100%)' }}
-      />
-
       {/* Ambient copper depth — the reference's warm bloom, in MotoRent's palette */}
       <div className="absolute top-[6%] left-[10%] w-[520px] h-[520px] rounded-full bg-brand-primary/10 blur-[130px] pointer-events-none animate-[ambientDrift_16s_ease-in-out_infinite]" />
       <div className="absolute bottom-[2%] right-[6%] w-[420px] h-[420px] rounded-full bg-brand-primary/[0.07] blur-[120px] pointer-events-none animate-[ambientDrift_20s_ease-in-out_infinite_reverse]" />

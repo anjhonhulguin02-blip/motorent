@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
-import mainWebsiteBg from '../assets/BG.jpg';
+import { pageBackground } from '../pageBackground';
 import AdminFleetManager from './AdminFleetManager';
 import Toast from './Toast';
 import ConfirmDialog from './ConfirmDialog';
@@ -386,7 +386,7 @@ export default function AdminDashboard({ onStatusUpdate }) {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-screen bg-[#050811]">
+      <div className="flex justify-center items-center h-screen bg-brand-bg">
         <LoadingSpinner label="Loading Command Center" size="lg" />
       </div>
     );
@@ -398,8 +398,8 @@ export default function AdminDashboard({ onStatusUpdate }) {
 
   return (
     <div
-      className="min-h-screen w-full font-sans bg-cover bg-center bg-[#050811] box-border px-4 sm:px-8 pt-[140px] pb-16 flex flex-col items-center"
-      style={{ backgroundImage: `url(${mainWebsiteBg})` }}
+      className="min-h-screen w-full font-sans bg-brand-bg box-border px-4 sm:px-8 pt-[140px] pb-16 flex flex-col items-center"
+      style={pageBackground}
     >
 
       <div className="w-full max-w-[1200px] flex justify-between items-center flex-wrap gap-4 mb-8">
@@ -899,7 +899,7 @@ export default function AdminDashboard({ onStatusUpdate }) {
               </button>
             </div>
 
-            <div className="p-5 flex justify-center items-center bg-[#050811] min-h-[40vh]">
+            <div className="p-5 flex justify-center items-center bg-brand-bg min-h-[40vh]">
               <img
                 src={selectedProofImg}
                 alt="Verification Proof"

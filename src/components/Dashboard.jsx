@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
-import mainWebsiteBg from '../assets/BG.jpg';
+import { pageBackground } from '../pageBackground';
 import PaymentModalExtend from './PaymentModalExtend';
 import Toast from './Toast';
 import ConfirmDialog from './ConfirmDialog';
@@ -259,7 +259,7 @@ export default function Dashboard({ user, lang }) {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-screen bg-[#050811]">
+      <div className="flex justify-center items-center h-screen bg-brand-bg">
         <LoadingSpinner label="Loading your bookings" size="lg" />
       </div>
     );
@@ -269,8 +269,8 @@ export default function Dashboard({ user, lang }) {
 
   return (
     <div
-      className="min-h-screen w-full box-border flex flex-col items-center px-8 pt-[140px] pb-16 bg-cover bg-center bg-[#050811]"
-      style={{ backgroundImage: `url(${mainWebsiteBg})` }}
+      className="min-h-screen w-full box-border flex flex-col items-center px-8 pt-[140px] pb-16 bg-brand-bg"
+      style={pageBackground}
     >
 
       <span className="eyebrow block mb-2">

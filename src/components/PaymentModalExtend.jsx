@@ -193,7 +193,7 @@ export default function PaymentModalExtend({ booking, onClose, onSuccess, lang }
           </div>
 
           {paymentMethod === 'eWallet' && (
-            <div className="bg-[#0f172a] p-4 rounded-[10px] border border-white/5">
+            <div className="bg-brand-surface p-4 rounded-[10px] border border-white/5">
               <label className={`${labelClass} text-center mb-2.5 text-slate-200`}>
                 {lang === 'en' ? 'Select eWallet to Scan' : 'Pumili ng eWallet para ma-scan'}
               </label>

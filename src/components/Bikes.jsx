@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
-import mainWebsiteBg from '../assets/BG.jpg';
+import { pageBackground } from '../pageBackground';
 import MotorcycleDetailModal from './MotorcycleDetailModal';
 import LoadingSpinner from './LoadingSpinner';
 
@@ -159,14 +159,9 @@ export default function Bikes({ onRentClick, activeRentals = [] }) {
   return (
     <section
       id="bikes"
-      className="w-full min-h-screen flex flex-col items-center bg-brand-bg bg-cover bg-center bg-no-repeat box-border relative px-4 sm:px-8 pt-[120px] pb-16 animate-[fadeInEffect_0.5s_ease-out_forwards]"
-      style={{ backgroundImage: `url(${mainWebsiteBg})` }}
+      className="w-full min-h-screen flex flex-col items-center bg-brand-bg box-border relative px-4 sm:px-8 pt-[120px] pb-16 animate-[fadeInEffect_0.5s_ease-out_forwards]"
+      style={pageBackground}
     >
-      {/* Navy scrim — the background artwork is far too bright to sit cards on */}
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{ background: 'linear-gradient(to bottom, rgba(10,15,28,0.88) 0%, rgba(10,15,28,0.94) 60%, rgba(10,15,28,0.97) 100%)' }}
-      />
       <div className="absolute top-[12%] right-[8%] w-[420px] h-[420px] rounded-full bg-brand-primary/[0.07] blur-[130px] pointer-events-none" />
 
       <div className="relative w-full max-w-[1240px] z-20">
